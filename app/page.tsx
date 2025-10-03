@@ -127,10 +127,10 @@ export default function Home() {
             The Four Swaras
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <SwaraTag name="Anudhaata" color="bg-blue-500" description="Low" />
-            <SwaraTag name="Udhaata" color="bg-red-500" description="High" />
-            <SwaraTag name="Swarita" color="bg-yellow-500" description="Falling" />
-            <SwaraTag name="Dheerga Swarita" color="bg-green-500" description="Prolonged" />
+            <SwaraTag name="Anudātta" color="bg-blue-500" description="Low ↓" />
+            <SwaraTag name="Udātta" color="bg-yellow-500" description="Base —" />
+            <SwaraTag name="Swarita" color="bg-red-500" description="Rising ↗" />
+            <SwaraTag name="Dīrgha Swarita" color="bg-green-500" description="Prolonged Rising ⤴" />
           </div>
         </motion.div>
       </div>

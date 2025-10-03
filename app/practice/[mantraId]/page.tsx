@@ -24,6 +24,8 @@ interface SyllableWithSwara {
 interface Paragraph {
   id: number;
   sanskrit: SyllableWithSwara[];
+  audioStartTime?: number; // in seconds
+  audioEndTime?: number; // in seconds
 }
 
 interface MantraData {
@@ -41,6 +43,8 @@ const mantraData: Record<string, MantraData> = {
     paragraphs: [
       {
         id: 1,
+        audioStartTime: 0,
+        audioEndTime: 5.5,
         sanskrit: [
           { text: 'ॐ', swara: 'anudhaata', romanization: 'Om' },
           { text: 'ए', swara: 'udhaata', romanization: 'E' },
@@ -55,6 +59,8 @@ const mantraData: Record<string, MantraData> = {
       },
       {
         id: 2,
+        audioStartTime: 5.5,
+        audioEndTime: 10.5,
         sanskrit: [
           { text: 'व', swara: 'anudhaata', romanization: 'Va' },
           { text: 'क्र', swara: 'udhaata', romanization: 'kra' },
@@ -68,6 +74,8 @@ const mantraData: Record<string, MantraData> = {
       },
       {
         id: 3,
+        audioStartTime: 10.5,
+        audioEndTime: 16,
         sanskrit: [
           { text: 'तं', swara: 'anudhaata', romanization: 'Taṃ' },
           { text: 'नो', swara: 'udhaata', romanization: 'no' },
@@ -144,6 +152,7 @@ export default function PracticePage() {
 
   const [selectedParagraph, setSelectedParagraph] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playAllVerses, setPlayAllVerses] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [accuracyScore, setAccuracyScore] = useState<number | null>(null);
   const [pitchAccuracy, setPitchAccuracy] = useState<number | null>(null);
@@ -164,26 +173,26 @@ export default function PracticePage() {
   const getSwaraColor = (swara: SwaraType) => {
     switch (swara) {
       case 'anudhaata':
-        return 'text-blue-400 bg-blue-500/20 border-blue-400/30';
+        return 'text-blue-400 bg-blue-500/20 border-blue-400/30';  // Low pitch
       case 'udhaata':
-        return 'text-red-400 bg-red-500/20 border-red-400/30';
+        return 'text-yellow-400 bg-yellow-500/20 border-yellow-400/30';  // Base/Stable pitch
       case 'swarita':
-        return 'text-yellow-400 bg-yellow-500/20 border-yellow-400/30';
+        return 'text-red-400 bg-red-500/20 border-red-400/30';  // Rising pitch
       case 'dheerga':
-        return 'text-green-400 bg-green-500/20 border-green-400/30';
+        return 'text-green-400 bg-green-500/20 border-green-400/30';  // Prolonged rising
     }
   };
 
   const getSwaraSymbol = (swara: SwaraType) => {
     switch (swara) {
       case 'anudhaata':
-        return '↓';
+        return '↓';  // Going down
       case 'udhaata':
-        return '↑';
+        return '—';  // Base/Stable
       case 'swarita':
-        return '↘';
+        return '↗';  // Going up
       case 'dheerga':
-        return '⤵';
+        return '⤴';  // Going up and prolonged
     }
   };
 
@@ -206,11 +215,46 @@ export default function PracticePage() {
 
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
+      // If playing a specific verse (not all verses), set the time range
+      if (!playAllVerses && currentParagraph?.audioStartTime !== undefined) {
+        audioRef.current.currentTime = currentParagraph.audioStartTime;
+      } else {
+        // Play from beginning for "Play All"
+        audioRef.current.currentTime = 0;
+      }
       audioRef.current.play();
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   };
+
+  // Handle audio time update to stop at verse end
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      if (!playAllVerses && currentParagraph?.audioEndTime !== undefined) {
+        if (audio.currentTime >= currentParagraph.audioEndTime) {
+          audio.pause();
+          setIsPlaying(false);
+        }
+      }
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [currentParagraph, playAllVerses]);
 
   const startRecording = async () => {
     try {
@@ -336,30 +380,30 @@ export default function PracticePage() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">↓</span>
-                    <span className="text-blue-400 font-semibold">Anudhaata</span>
+                    <span className="text-blue-400 font-semibold">Anudātta</span>
                   </div>
-                  <p className="text-sm text-purple-200">Low pitch - maintain a lower tone</p>
+                  <p className="text-sm text-purple-200">Low pitch - go down</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">↑</span>
-                    <span className="text-red-400 font-semibold">Udhaata</span>
+                    <span className="text-2xl">—</span>
+                    <span className="text-yellow-400 font-semibold">Udātta</span>
                   </div>
-                  <p className="text-sm text-purple-200">High pitch - raise your voice</p>
+                  <p className="text-sm text-purple-200">Base pitch - stable tone</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">↘</span>
-                    <span className="text-yellow-400 font-semibold">Swarita</span>
+                    <span className="text-2xl">↗</span>
+                    <span className="text-red-400 font-semibold">Swarita</span>
                   </div>
-                  <p className="text-sm text-purple-200">Falling pitch - descending tone</p>
+                  <p className="text-sm text-purple-200">Rising pitch - go up</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">⤵</span>
-                    <span className="text-green-400 font-semibold">Dheerga Swarita</span>
+                    <span className="text-2xl">⤴</span>
+                    <span className="text-green-400 font-semibold">Dīrgha Swarita</span>
                   </div>
-                  <p className="text-sm text-purple-200">Prolonged fall - extended descent</p>
+                  <p className="text-sm text-purple-200">Prolonged rise - go up and hold</p>
                 </div>
               </div>
             </motion.div>
@@ -437,17 +481,36 @@ export default function PracticePage() {
               </div>
 
               {/* Audio Controls */}
-              <div className="flex items-center gap-4 pt-8 border-t border-white/10">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={togglePlayAudio}
-                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 font-medium transition-all"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                  {isPlaying ? 'Pause' : 'Play'} Reference
-                </motion.button>
-                <Volume2 className="w-5 h-5 text-purple-400" />
+              <div className="space-y-4 pt-8 border-t border-white/10">
+                <div className="flex items-center gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={togglePlayAudio}
+                    className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 font-medium transition-all"
+                  >
+                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                    {isPlaying ? 'Pause' : 'Play'} {playAllVerses ? 'All Verses' : `Verse ${selectedParagraph}`}
+                  </motion.button>
+                  <Volume2 className="w-5 h-5 text-purple-400" />
+                </div>
+
+                {/* Toggle for Play All Verses */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setPlayAllVerses(!playAllVerses)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      playAllVerses ? 'bg-gradient-to-r from-purple-600 to-cyan-600' : 'bg-white/20'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        playAllVerses ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-purple-300">Play All Verses</span>
+                </div>
               </div>
             </motion.div>
 
