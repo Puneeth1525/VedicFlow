@@ -15,7 +15,7 @@ import {
   SyllableWithSwara,
   SwaraType,
 } from '@/lib/pitchDetection';
-import { AudioMLModel, AudioMLResult } from '@/lib/audioML';
+import { AudioMLModel } from '@/lib/audioML';
 
 interface Paragraph {
   id: number;

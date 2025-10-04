@@ -94,7 +94,8 @@ export class AudioMLModel {
     }
 
     await this.recognizer.listen(
-      (result) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (result: any) => {
         const results: AudioMLResult[] = this.wordLabels.map((label, i) => ({
           className: label,
           probability: result.scores[i] || 0,
