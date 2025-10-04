@@ -10,16 +10,12 @@ import {
   PitchData,
   loadAndAnalyzeAudio,
   comparePitchSequences,
+  analyzeSwaraAccuracy,
+  SwaraSyllableMatch,
+  SyllableWithSwara,
+  SwaraType,
 } from '@/lib/pitchDetection';
-
-// Define swara types
-type SwaraType = 'anudhaata' | 'udhaata' | 'swarita' | 'dheerga';
-
-interface SyllableWithSwara {
-  text: string;
-  swara: SwaraType;
-  romanization?: string;
-}
+import { AudioMLModel, AudioMLResult } from '@/lib/audioML';
 
 interface Paragraph {
   id: number;
@@ -44,48 +40,46 @@ const mantraData: Record<string, MantraData> = {
       {
         id: 1,
         audioStartTime: 0,
-        audioEndTime: 5.5,
+        audioEndTime: 9,
         sanskrit: [
-          { text: 'ॐ', swara: 'anudhaata', romanization: 'Om' },
           { text: 'ए', swara: 'udhaata', romanization: 'E' },
-          { text: 'का', swara: 'anudhaata', romanization: 'kā' },
-          { text: 'दं', swara: 'udhaata', romanization: 'daṃ' },
-          { text: 'ता', swara: 'swarita', romanization: 'tā' },
-          { text: 'य', swara: 'anudhaata', romanization: 'ya' },
-          { text: 'वि', swara: 'udhaata', romanization: 'vi' },
-          { text: 'द्म', swara: 'swarita', romanization: 'dma' },
-          { text: 'हे', swara: 'dheerga', romanization: 'he' },
+          { text: 'क', swara: 'udhaata', romanization: 'ka' },
+          { text: 'दं', swara: 'anudhaata', romanization: 'daṃ' },
+          { text: 'ता', swara: 'udhaata', romanization: 'tā' },
+          { text: 'य', swara: 'swarita', romanization: 'ya' },
+          { text: 'वि', swara: 'anudhaata', romanization: 'vi' },
+          { text: 'द्म', swara: 'udhaata', romanization: 'dma' },
+          { text: 'हे', swara: 'swarita', romanization: 'he' },
         ] as SyllableWithSwara[],
       },
       {
         id: 2,
-        audioStartTime: 5.5,
-        audioEndTime: 10.5,
+        audioStartTime: 9,
+        audioEndTime: 15,
         sanskrit: [
-          { text: 'व', swara: 'anudhaata', romanization: 'Va' },
+          { text: 'व', swara: 'udhaata', romanization: 'Va' },
           { text: 'क्र', swara: 'udhaata', romanization: 'kra' },
-          { text: 'तुं', swara: 'swarita', romanization: 'tuṃ' },
-          { text: 'डा', swara: 'anudhaata', romanization: 'ḍā' },
-          { text: 'य', swara: 'udhaata', romanization: 'ya' },
-          { text: 'धी', swara: 'dheerga', romanization: 'dhī' },
-          { text: 'म', swara: 'anudhaata', romanization: 'ma' },
+          { text: 'तुं', swara: 'anudhaata', romanization: 'tuṃ' },
+          { text: 'डा', swara: 'udhaata', romanization: 'ḍā' },
+          { text: 'य', swara: 'swarita', romanization: 'ya' },
+          { text: 'धी', swara: 'udhaata', romanization: 'dhī' },
+          { text: 'म', swara: 'udhaata', romanization: 'ma' },
           { text: 'हि', swara: 'udhaata', romanization: 'hi' },
         ] as SyllableWithSwara[],
       },
       {
         id: 3,
-        audioStartTime: 10.5,
-        audioEndTime: 16,
+        audioStartTime: 15,
+        audioEndTime: 999,
         sanskrit: [
-          { text: 'तं', swara: 'anudhaata', romanization: 'Taṃ' },
-          { text: 'नो', swara: 'udhaata', romanization: 'no' },
-          { text: 'द', swara: 'anudhaata', romanization: 'da' },
-          { text: 'न्ति', swara: 'swarita', romanization: 'nti' },
+          { text: 'तं', swara: 'udhaata', romanization: 'Taṃ' },
+          { text: 'नो', swara: 'swarita', romanization: 'no' },
+          { text: 'दं', swara: 'udhaata', romanization: 'daṃ' },
+          { text: 'तिः', swara: 'udhaata', romanization: 'tiḥ' },
           { text: 'प्र', swara: 'udhaata', romanization: 'pra' },
           { text: 'चो', swara: 'anudhaata', romanization: 'cho' },
           { text: 'द', swara: 'udhaata', romanization: 'da' },
-          { text: 'या', swara: 'dheerga', romanization: 'yā' },
-          { text: 'त्', swara: 'swarita', romanization: 't' },
+          { text: 'यात्', swara: 'dheerga', romanization: 'yāt' },
         ] as SyllableWithSwara[],
       },
     ],
@@ -157,9 +151,14 @@ export default function PracticePage() {
   const [accuracyScore, setAccuracyScore] = useState<number | null>(null);
   const [pitchAccuracy, setPitchAccuracy] = useState<number | null>(null);
   const [rhythmAccuracy, setRhythmAccuracy] = useState<number | null>(null);
+  const [swaraAccuracy, setSwaraAccuracy] = useState<number | null>(null);
+  const [syllableMatches, setSyllableMatches] = useState<SwaraSyllableMatch[]>([]);
+  const [currentSyllableIndex, setCurrentSyllableIndex] = useState<number>(-1);
   const [showInfo, setShowInfo] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [referencePitchData, setReferencePitchData] = useState<PitchData[]>([]);
+  const [mlPredictions, setMlPredictions] = useState<AudioMLResult[]>([]);
+  const [modelLoaded, setModelLoaded] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -167,6 +166,7 @@ export default function PracticePage() {
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const userPitchDataRef = useRef<PitchData[]>([]);
   const recordingStartTimeRef = useRef<number>(0);
+  const mlModelRef = useRef<AudioMLModel | null>(null);
 
   const currentParagraph = mantra.paragraphs.find((p) => p.id === selectedParagraph);
 
@@ -196,6 +196,19 @@ export default function PracticePage() {
     }
   };
 
+  const getFeedbackColor = (accuracy: 'perfect' | 'good' | 'fair' | 'poor') => {
+    switch (accuracy) {
+      case 'perfect':
+        return 'border-green-500 bg-green-500/30 ring-2 ring-green-400';
+      case 'good':
+        return 'border-yellow-500 bg-yellow-500/20 ring-2 ring-yellow-400';
+      case 'fair':
+        return 'border-orange-500 bg-orange-500/20 ring-2 ring-orange-400';
+      case 'poor':
+        return 'border-red-500 bg-red-500/20 ring-2 ring-red-400';
+    }
+  };
+
   // Load reference audio pitch data when mantra changes
   useEffect(() => {
     if (mantra.audioUrl) {
@@ -209,6 +222,27 @@ export default function PracticePage() {
         });
     }
   }, [mantra.audioUrl]);
+
+  // Load ML model when component mounts
+  useEffect(() => {
+    const loadMLModel = async () => {
+      try {
+        // Load Teachable Machine model
+        const modelPath = `/models/${mantraId}/`;
+
+        mlModelRef.current = new AudioMLModel();
+        await mlModelRef.current.loadModel(modelPath);
+        setModelLoaded(true);
+        console.log('ML model loaded successfully for', mantraId);
+      } catch (error) {
+        console.log('ML model not available for this mantra:', error);
+        // Gracefully fallback to pitch-based detection
+        setModelLoaded(false);
+      }
+    };
+
+    loadMLModel();
+  }, [mantraId]);
 
   const togglePlayAudio = () => {
     if (!audioRef.current) return;
@@ -263,6 +297,9 @@ export default function PracticePage() {
       setAccuracyScore(null);
       setPitchAccuracy(null);
       setRhythmAccuracy(null);
+      setSwaraAccuracy(null);
+      setSyllableMatches([]);
+      setCurrentSyllableIndex(-1);
 
       // Start media recorder for playback
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -286,14 +323,74 @@ export default function PracticePage() {
           console.log('User pitch data:', userPitchData.length, 'points');
           console.log('Reference pitch data:', referencePitchData.length, 'points');
 
-          if (referencePitchData.length > 0 && userPitchData.length > 0) {
+          if (referencePitchData.length > 0 && userPitchData.length > 0 && currentParagraph) {
+            // Basic pitch comparison
             const result = comparePitchSequences(referencePitchData, userPitchData);
+
+            // Swara-level analysis
+            let swaraResult;
+
+            // Use ML model if available, otherwise fallback to pitch-based detection
+            if (modelLoaded && mlModelRef.current && selectedParagraph === 1) {
+              try {
+                // Analyze with ML model (only for Verse 1 since that's what you trained)
+                // First, convert blob to AudioBuffer
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const audioContext = new AudioContext();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                const predictions = await mlModelRef.current.predictFromAudioBuffer(audioBuffer);
+                setMlPredictions(predictions);
+                audioContext.close();
+
+                console.log('ML Predictions:', predictions);
+
+                // Get the top prediction (ignoring "Background Noise")
+                const versePrediction = predictions.find(p => p.className !== 'Background Noise') || predictions[0];
+
+                // Calculate accuracy based on ML confidence
+                // If it detected "Verse-1" with high confidence, that's good!
+                let mlAccuracy = 0;
+                if (versePrediction.className === 'Verse-1') {
+                  // Convert probability (0-1) to percentage with good scaling
+                  mlAccuracy = versePrediction.probability * 100;
+                } else {
+                  // Detected as background noise or low confidence
+                  mlAccuracy = Math.max(0, (1 - versePrediction.probability) * 50);
+                }
+
+                swaraResult = {
+                  syllableMatches: [],
+                  swaraAccuracy: Math.round(mlAccuracy),
+                  overallScore: Math.round(mlAccuracy),
+                };
+
+                console.log(`ML Accuracy: ${mlAccuracy}% (Detected: ${versePrediction.className}, Confidence: ${(versePrediction.probability * 100).toFixed(1)}%)`);
+              } catch (error) {
+                console.error('ML prediction error, falling back to pitch detection:', error);
+                swaraResult = analyzeSwaraAccuracy(
+                  referencePitchData,
+                  userPitchData,
+                  currentParagraph.sanskrit
+                );
+              }
+            } else {
+              // Fallback to pitch-based detection for other verses or if model not loaded
+              swaraResult = analyzeSwaraAccuracy(
+                referencePitchData,
+                userPitchData,
+                currentParagraph.sanskrit
+              );
+            }
 
             setAccuracyScore(result.overallScore);
             setPitchAccuracy(result.pitchAccuracy);
             setRhythmAccuracy(result.rhythmAccuracy);
+            setSwaraAccuracy(swaraResult.swaraAccuracy);
+            setSyllableMatches(swaraResult.syllableMatches);
 
             console.log('Analysis result:', result);
+            console.log('Swara analysis:', swaraResult);
           } else {
             alert('Unable to analyze audio. Please try again.');
           }
@@ -448,36 +545,58 @@ export default function PracticePage() {
 
               {/* Sanskrit with Swara indicators */}
               <div className="flex flex-wrap gap-3 mb-8">
-                {currentParagraph?.sanskrit.map((syllable: SyllableWithSwara, index: number) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="relative"
-                  >
-                    {/* Swara symbol above */}
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl">
-                      {getSwaraSymbol(syllable.swara)}
-                    </div>
+                {currentParagraph?.sanskrit.map((syllable: SyllableWithSwara, index: number) => {
+                  const match = syllableMatches.find(m => m.syllableIndex === index);
+                  const isRecordingActive = isRecording && currentSyllableIndex === index;
+                  const hasFeedback = match !== undefined;
 
-                    {/* Syllable */}
-                    <div
-                      className={`px-4 py-3 rounded-xl border-2 ${getSwaraColor(
-                        syllable.swara
-                      )} font-bold text-2xl`}
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="relative"
                     >
-                      {syllable.text}
-                    </div>
-
-                    {/* Romanization below */}
-                    {syllable.romanization && (
-                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-purple-300 whitespace-nowrap">
-                        {syllable.romanization}
+                      {/* Swara symbol above */}
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl">
+                        {getSwaraSymbol(syllable.swara)}
                       </div>
-                    )}
-                  </motion.div>
-                ))}
+
+                      {/* Syllable with feedback */}
+                      <motion.div
+                        animate={isRecordingActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                        transition={isRecordingActive ? { repeat: Infinity, duration: 0.8 } : {}}
+                        className={`px-4 py-3 rounded-xl border-2 font-bold text-2xl transition-all ${
+                          hasFeedback
+                            ? getFeedbackColor(match.accuracy)
+                            : isRecordingActive
+                            ? 'border-cyan-500 bg-cyan-500/30 ring-2 ring-cyan-400'
+                            : getSwaraColor(syllable.swara)
+                        }`}
+                      >
+                        {syllable.text}
+                      </motion.div>
+
+                      {/* Romanization below */}
+                      {syllable.romanization && (
+                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-purple-300 whitespace-nowrap">
+                          {syllable.romanization}
+                        </div>
+                      )}
+
+                      {/* Feedback indicator */}
+                      {hasFeedback && match && (
+                        <div className="absolute -top-10 right-0 text-xs font-semibold">
+                          {match.accuracy === 'perfect' && '✓'}
+                          {match.accuracy === 'good' && '~'}
+                          {match.accuracy === 'fair' && '!'}
+                          {match.accuracy === 'poor' && '✗'}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
 
               {/* Audio Controls */}
@@ -633,12 +752,43 @@ export default function PracticePage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Overall</span>
+                      <span className="text-purple-300">Swara Accuracy</span>
                       <span className="text-white font-medium">
+                        {swaraAccuracy !== null ? `${swaraAccuracy}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
+                      <span className="text-purple-300 font-semibold">Overall</span>
+                      <span className="text-white font-bold">
                         {accuracyScore}%
                       </span>
                     </div>
                   </div>
+
+                  {/* Color Legend */}
+                  {syllableMatches.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <p className="text-xs text-purple-300 mb-2">Feedback Colors:</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                          <span>Perfect</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <span>Good</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                          <span>Fair</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <span>Needs work</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
