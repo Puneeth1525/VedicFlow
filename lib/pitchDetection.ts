@@ -459,6 +459,27 @@ export function analyzeSwaraAccuracy(
     };
   }
 
+  // Check duration similarity - heavily penalize if too different
+  const refDuration = referencePitchData[referencePitchData.length - 1].timestamp;
+  const userDuration = userPitchData[userPitchData.length - 1].timestamp;
+  const durationRatio = Math.min(refDuration, userDuration) / Math.max(refDuration, userDuration);
+
+  // If duration is way off (less than 60% similar), likely wrong words
+  if (durationRatio < 0.6) {
+    return {
+      syllableMatches: syllables.map((syl, idx) => ({
+        syllableIndex: idx,
+        expectedSwara: syl.swara,
+        detectedSwara: 'udhaata',
+        confidence: 0,
+        accuracy: 'poor',
+        semitonesDiff: 999,
+      })),
+      swaraAccuracy: Math.round(durationRatio * 50), // Max 30% if duration way off
+      overallScore: Math.round(durationRatio * 50),
+    };
+  }
+
   // Use DTW to align reference and user sequences first
   const { path } = dynamicTimeWarping(referencePitchData, userPitchData);
 

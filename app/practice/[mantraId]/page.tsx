@@ -811,6 +811,10 @@ export default function PracticePage() {
                   <span className="text-purple-400">•</span>
                   <span>Practice in a quiet environment for better accuracy</span>
                 </li>
+                <li className="flex gap-2 pt-2 border-t border-white/10">
+                  <span className="text-yellow-400">⚠</span>
+                  <span className="text-yellow-200">Note: Current scoring is pitch-based only. For best results, chant the exact words and match duration closely.</span>
+                </li>
               </ul>
             </div>
           </div>
