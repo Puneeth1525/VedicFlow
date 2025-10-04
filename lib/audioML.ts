@@ -11,6 +11,7 @@ export interface AudioMLResult {
 }
 
 export class AudioMLModel {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private recognizer: any = null;
   private wordLabels: string[] = [];
 

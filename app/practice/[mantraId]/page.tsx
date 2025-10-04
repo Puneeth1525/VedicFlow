@@ -157,7 +157,6 @@ export default function PracticePage() {
   const [showInfo, setShowInfo] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [referencePitchData, setReferencePitchData] = useState<PitchData[]>([]);
-  const [mlPredictions, setMlPredictions] = useState<AudioMLResult[]>([]);
   const [modelLoaded, setModelLoaded] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -340,7 +339,6 @@ export default function PracticePage() {
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
                 const predictions = await mlModelRef.current.predictFromAudioBuffer(audioBuffer);
-                setMlPredictions(predictions);
                 audioContext.close();
 
                 console.log('ML Predictions:', predictions);

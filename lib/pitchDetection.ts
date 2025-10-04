@@ -291,7 +291,7 @@ export function comparePitchSequences(
   }
 
   // Use DTW to align sequences
-  const { cost, path } = dynamicTimeWarping(reference, user);
+  const { path } = dynamicTimeWarping(reference, user);
 
   const details: Array<{
     timestamp: number;
@@ -519,7 +519,7 @@ export function analyzeSwaraAccuracy(
     // Much more lenient thresholds - focus on relative pitch matching
     let accuracy: 'perfect' | 'good' | 'fair' | 'poor';
     let scoreContribution: number;
-    let detectedSwara: SwaraType = syllable.swara;
+    const detectedSwara: SwaraType = syllable.swara;
 
     if (semitonesDiff < 1.0) {
       // Within 1 semitone - PERFECT (was 0.5)
