@@ -118,7 +118,7 @@ export async function analyzeMantraChanting(
 function matchIndividualAksharas(
   syllables: SyllableWithSwara[],
   transcribedText: string,
-  expectedText: string
+  _expectedText: string
 ): SyllableAnalysisResult[] {
 
   // Normalize both texts for comparison

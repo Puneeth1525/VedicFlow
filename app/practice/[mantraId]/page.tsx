@@ -337,7 +337,7 @@ export default function PracticePage() {
               syllableIndex: r.syllableIndex,
               expectedSwara: r.expectedSwara,
               detectedSwara: r.detectedSwara,
-              confidence: r.confidence,
+              confidence: r.pronunciationScore / 100, // Convert percentage to 0-1
               accuracy: r.accuracy,
               semitonesDiff: 0, // Not used in phonetic mode
             }));
@@ -345,9 +345,7 @@ export default function PracticePage() {
             setSyllableMatches(matches);
             setComprehensiveResults(result.syllableResults);
 
-            console.log('Phonetic Accuracy:', result.phoneticAccuracy);
-            console.log('Swara Accuracy:', result.swaraAccuracy);
-            console.log('Pronunciation Score:', result.pronunciationScore);
+            console.log('Pronunciation Accuracy:', result.pronunciationAccuracy);
             console.log('Overall Score:', result.overallScore);
 
             if (result.feedback.length > 0) {
