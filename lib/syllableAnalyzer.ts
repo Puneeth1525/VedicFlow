@@ -1,10 +1,13 @@
 /**
  * Syllable Analyzer using Whisper AI for pronunciation verification
- * Simple approach: transcribe audio and match aksharas
+ * AND ML-based pitch detection for swara analysis
  */
 
 import { SwaraType, SyllableWithSwara } from './pitchDetection';
 import { transcribeAudioToText, calculatePhoneticSimilarity } from './speechRecognition';
+import { MLPitchDetector } from './pitch/crepePitchDetector';
+import { VedicSwaraClassifier } from './pitch/swaraClassifier';
+import { SyllableSegmenter } from './pitch/syllableSegmentation';
 
 export interface SyllableAnalysisResult {
   syllableIndex: number;
@@ -75,14 +78,30 @@ export async function analyzeMantraChanting(
 
   console.log(`📊 Overall pronunciation match: ${overallSimilarity}%`);
 
-  // Step 4: Match individual aksharas
-  const syllableResults = matchIndividualAksharas(
+  // Step 4: Perform swara detection using ML pitch analysis
+  console.log('\n🎵 Starting ML-based swara detection...');
+  let swaraResults: SyllableAnalysisResult[] = [];
+
+  try {
+    swaraResults = await analyzeSwaras(userAudioBuffer, syllables);
+    console.log(`✅ Swara analysis complete`);
+  } catch (error) {
+    console.error('⚠️ Swara detection failed:', error);
+    // Fallback to pronunciation-only analysis
+    swaraResults = matchIndividualAksharas(syllables, transcriptionResult.transcript, expectedText);
+  }
+
+  // Step 5: Match individual aksharas for pronunciation
+  const pronunciationResults = matchIndividualAksharas(
     syllables,
     transcriptionResult.transcript,
     expectedText
   );
 
-  // Step 5: Generate feedback
+  // Step 6: Combine pronunciation and swara scores
+  const syllableResults = combineResults(pronunciationResults, swaraResults);
+
+  // Step 7: Generate feedback
   const feedback: string[] = [];
 
   // More lenient feedback thresholds to account for phonetically similar sounds
@@ -219,6 +238,88 @@ function matchIndividualAksharas(
   }
 
   return results;
+}
+
+/**
+ * Analyze swaras using ML-based pitch detection
+ */
+async function analyzeSwaras(
+  audioBuffer: AudioBuffer,
+  syllables: SyllableWithSwara[]
+): Promise<SyllableAnalysisResult[]> {
+  // Initialize detectors
+  const pitchDetector = new MLPitchDetector({
+    sampleRate: audioBuffer.sampleRate
+  });
+  const swaraClassifier = new VedicSwaraClassifier();
+  const segmenter = new SyllableSegmenter();
+
+  // Step 1: Extract pitch contour
+  const contour = await pitchDetector.extractPitchContour(audioBuffer);
+
+  // Step 2: Smooth the contour
+  const smoothedContour = pitchDetector.smoothPitchContour(contour, 5);
+
+  // Step 3: Detect baseline (Udātta)
+  const baseline = swaraClassifier.detectBaseline(smoothedContour);
+  console.log(`🎯 Baseline frequency: ${baseline.frequency.toFixed(1)} Hz`);
+
+  // Step 4: Segment syllables
+  const segments = await segmenter.segmentBySyllables(audioBuffer, syllables);
+
+  // Step 5: Analyze each syllable's swara
+  const swaraAnalysis = swaraClassifier.analyzeSyllableSwaras(
+    smoothedContour,
+    segments.map(seg => ({
+      index: seg.index,
+      startTime: seg.startTime,
+      endTime: seg.endTime,
+      expectedSwara: seg.expectedSwara as SwaraType
+    }))
+  );
+
+  // Step 6: Convert to SyllableAnalysisResult format
+  return swaraAnalysis.map(result => ({
+    syllableIndex: result.syllableIndex,
+    expectedText: syllables[result.syllableIndex].text,
+    transcribedText: syllables[result.syllableIndex].text,
+    expectedSwara: result.expectedSwara,
+    pronunciationScore: 100,  // Not analyzed in swara-only mode
+    pronunciationMatch: true,
+    detectedSwara: result.detection.swara,
+    swaraScore: result.score,
+    swaraMatch: result.match,
+    overallScore: result.score,
+    accuracy: result.accuracy
+  }));
+}
+
+/**
+ * Combine pronunciation and swara results
+ */
+function combineResults(
+  pronunciationResults: SyllableAnalysisResult[],
+  swaraResults: SyllableAnalysisResult[]
+): SyllableAnalysisResult[] {
+  return pronunciationResults.map((pronResult, i) => {
+    const swaraResult = swaraResults[i];
+
+    // Weighted combination: 60% pronunciation, 40% swara
+    const combinedScore = Math.round(
+      pronResult.pronunciationScore * 0.6 + swaraResult.swaraScore * 0.4
+    );
+
+    return {
+      ...pronResult,
+      detectedSwara: swaraResult.detectedSwara,
+      swaraScore: swaraResult.swaraScore,
+      swaraMatch: swaraResult.swaraMatch,
+      overallScore: combinedScore,
+      accuracy: combinedScore >= 90 ? 'perfect' :
+                combinedScore >= 75 ? 'good' :
+                combinedScore >= 60 ? 'fair' : 'poor'
+    };
+  });
 }
 
 /**
