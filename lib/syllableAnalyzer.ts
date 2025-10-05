@@ -119,7 +119,7 @@ export async function analyzeMantraChanting(
 function matchIndividualAksharas(
   syllables: SyllableWithSwara[],
   transcribedText: string,
-  _expectedText: string
+  expectedText: string
 ): SyllableAnalysisResult[] {
 
   // Normalize both texts for comparison
@@ -129,50 +129,52 @@ function matchIndividualAksharas(
     .replace(/[\u0300-\u036f]/g, '');
 
   const normalizedTranscript = normalizeText(transcribedText);
+  const normalizedExpected = normalizeText(expectedText);
 
-  // Simple character-by-character alignment
-  // This works when transcription is close to expected
+  // If texts match exactly, mark all syllables as perfect
+  if (normalizedTranscript === normalizedExpected) {
+    return syllables.map((s, i) => ({
+      syllableIndex: i,
+      expectedText: s.text,
+      transcribedText: s.text,
+      expectedSwara: s.swara,
+      pronunciationScore: 100,
+      pronunciationMatch: true,
+      detectedSwara: 'udhaata' as const,
+      swaraScore: 0,
+      swaraMatch: false,
+      overallScore: 100,
+      accuracy: 'perfect' as const
+    }));
+  }
+
+  // If not perfect match, try to align syllables
   const results: SyllableAnalysisResult[] = [];
+  let transcriptPosition = 0;
 
   for (let i = 0; i < syllables.length; i++) {
     const expectedAkshara = syllables[i].text;
     const normalizedExpectedAkshara = normalizeText(expectedAkshara);
+    const aksharaLength = normalizedExpectedAkshara.length;
 
-    // Try to find this akshara in the transcript around the expected position
-    // Calculate approximate position in transcript
-    const expectedPosition = Math.floor((i / syllables.length) * normalizedTranscript.length);
-    const searchStart = Math.max(0, expectedPosition - 2);
-    const searchEnd = Math.min(normalizedTranscript.length, expectedPosition + 3);
-    const searchWindow = normalizedTranscript.substring(searchStart, searchEnd);
+    // Extract corresponding portion from transcript
+    const transcriptPortion = normalizedTranscript.substring(
+      transcriptPosition,
+      transcriptPosition + aksharaLength
+    );
 
-    // Check if the akshara appears in the search window
-    const found = searchWindow.includes(normalizedExpectedAkshara);
+    // Calculate similarity
+    const pronunciationScore = calculatePhoneticSimilarity(
+      transcriptPortion,
+      normalizedExpectedAkshara
+    );
 
-    // Calculate similarity score
-    let pronunciationScore = 0;
-    let transcribedChar = '';
-
-    if (found) {
-      pronunciationScore = 100;
-      transcribedChar = expectedAkshara;
-    } else {
-      // Try character-level match
-      if (expectedPosition < normalizedTranscript.length) {
-        transcribedChar = transcribedText.charAt(expectedPosition) || '';
-        pronunciationScore = calculatePhoneticSimilarity(
-          transcribedChar,
-          expectedAkshara
-        );
-      }
-    }
-
-    // More lenient threshold - phonetically similar sounds should pass
     const pronunciationMatch = pronunciationScore >= 60;
 
     results.push({
       syllableIndex: i,
       expectedText: expectedAkshara,
-      transcribedText: transcribedChar,
+      transcribedText: transcriptPortion || expectedAkshara,
       expectedSwara: syllables[i].swara,
       pronunciationScore,
       pronunciationMatch,
@@ -187,6 +189,9 @@ function matchIndividualAksharas(
                 pronunciationScore >= 75 ? 'good' :
                 pronunciationScore >= 60 ? 'fair' : 'poor'
     });
+
+    // Move position forward
+    transcriptPosition += aksharaLength;
   }
 
   return results;

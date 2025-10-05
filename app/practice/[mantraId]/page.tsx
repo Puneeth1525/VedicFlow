@@ -54,7 +54,7 @@ const mantraData: Record<string, MantraData> = {
       },
       {
         id: 2,
-        audioStartTime: 9,
+        audioStartTime: 10,
         audioEndTime: 15,
         sanskrit: [
           { text: 'व', swara: 'udhaata', romanization: 'Va' },
@@ -72,10 +72,10 @@ const mantraData: Record<string, MantraData> = {
         audioStartTime: 15,
         audioEndTime: 999,
         sanskrit: [
-          { text: 'तं', swara: 'udhaata', romanization: 'Taṃ' },
-          { text: 'नो', swara: 'swarita', romanization: 'no' },
-          { text: 'दं', swara: 'udhaata', romanization: 'daṃ' },
-          { text: 'तिः', swara: 'udhaata', romanization: 'tiḥ' },
+          { text: 'त', swara: 'udhaata', romanization: 'Taṃ' },
+          { text: 'न्नो', swara: 'swarita', romanization: 'no' },
+          { text: 'द', swara: 'udhaata', romanization: 'daṃ' },
+          { text: 'न्तिः', swara: 'udhaata', romanization: 'tiḥ' },
           { text: 'प्र', swara: 'udhaata', romanization: 'pra' },
           { text: 'चो', swara: 'anudhaata', romanization: 'cho' },
           { text: 'द', swara: 'udhaata', romanization: 'da' },
@@ -220,6 +220,15 @@ export default function PracticePage() {
         });
     }
   }, [mantra.audioUrl]);
+
+  // Clear feedback when verse changes
+  useEffect(() => {
+    setAccuracyScore(null);
+    setSyllableMatches([]);
+    setComprehensiveResults([]);
+    setPhoneticAccuracy(null);
+    setPronunciationScore(null);
+  }, [selectedParagraph]);
 
   // ML model removed - now using Whisper AI for pronunciation detection
 
