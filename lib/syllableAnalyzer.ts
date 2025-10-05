@@ -211,7 +211,6 @@ function createEmptyResult(syllables: SyllableWithSwara[]): ComprehensiveAnalysi
     transcribedText: '',
     expectedText: syllables.map(s => s.text).join(''),
     pronunciationAccuracy: 0,
-    swaraAccuracy: 0,
     overallScore: 0,
     feedback: ['Audio transcription failed. Please try again.']
   };
