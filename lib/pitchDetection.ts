@@ -442,6 +442,56 @@ export interface SwaraSyllableMatch {
   semitonesDiff: number;
 }
 
+/**
+ * Calculate relative pitch (swara) for each syllable
+ * Converts absolute frequencies to relative scale positions
+ */
+function calculateRelativeSwaras(pitchData: PitchData[]): Array<{ swara: SwaraType; confidence: number }> {
+  if (pitchData.length === 0) return [];
+
+  // Find the base pitch (median frequency)
+  const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
+  const basePitch = frequencies[Math.floor(frequencies.length / 2)];
+
+  // Convert each pitch to relative semitones from base
+  const relativePitches = pitchData.map(p => ({
+    semitones: 12 * Math.log2(p.frequency / basePitch),
+    timestamp: p.timestamp,
+  }));
+
+  // Average the relative pitches to get overall pattern
+  const avgSemitones = relativePitches.reduce((sum, p) => sum + p.semitones, 0) / relativePitches.length;
+
+  // Classify into swara based on relative position
+  // anudātta = low (< -1 semitones from base)
+  // udātta = base (-1 to +1 semitones)
+  // swarita = high (+1 to +3 semitones)
+  // dheerga = very high (> +3 semitones) + prolonged
+
+  let swara: SwaraType;
+  let confidence = 80;
+
+  if (avgSemitones < -1) {
+    swara = 'anudhaata';
+    confidence = Math.min(95, 80 + Math.abs(avgSemitones) * 5);
+  } else if (avgSemitones > 3) {
+    swara = 'dheerga';
+    confidence = Math.min(95, 80 + (avgSemitones - 3) * 5);
+  } else if (avgSemitones > 1) {
+    swara = 'swarita';
+    confidence = Math.min(95, 80 + (avgSemitones - 1) * 5);
+  } else {
+    swara = 'udhaata';
+    confidence = Math.min(95, 80 - Math.abs(avgSemitones) * 5);
+  }
+
+  return [{ swara, confidence }];
+}
+
+/**
+ * Analyze swara accuracy based on RELATIVE pitch patterns, not absolute frequencies
+ * Speed-independent - allows users to learn slowly
+ */
 export function analyzeSwaraAccuracy(
   referencePitchData: PitchData[],
   userPitchData: PitchData[],
@@ -459,65 +509,31 @@ export function analyzeSwaraAccuracy(
     };
   }
 
-  // Check duration similarity - heavily penalize if too different
-  const refDuration = referencePitchData[referencePitchData.length - 1].timestamp;
+  // Calculate base pitches for relative comparison
+  const refFrequencies = referencePitchData.map(p => p.frequency).sort((a, b) => a - b);
+  const userFrequencies = userPitchData.map(p => p.frequency).sort((a, b) => a - b);
+
+  const refBasePitch = refFrequencies[Math.floor(refFrequencies.length / 2)];
+  const userBasePitch = userFrequencies[Math.floor(userFrequencies.length / 2)];
+
+  // Split user audio into syllable chunks (speed-independent)
   const userDuration = userPitchData[userPitchData.length - 1].timestamp;
-  const durationRatio = Math.min(refDuration, userDuration) / Math.max(refDuration, userDuration);
-
-  // If duration is way off (less than 60% similar), likely wrong words
-  if (durationRatio < 0.6) {
-    return {
-      syllableMatches: syllables.map((syl, idx) => ({
-        syllableIndex: idx,
-        expectedSwara: syl.swara,
-        detectedSwara: 'udhaata',
-        confidence: 0,
-        accuracy: 'poor',
-        semitonesDiff: 999,
-      })),
-      swaraAccuracy: Math.round(durationRatio * 50), // Max 30% if duration way off
-      overallScore: Math.round(durationRatio * 50),
-    };
-  }
-
-  // Use DTW to align reference and user sequences first
-  const { path } = dynamicTimeWarping(referencePitchData, userPitchData);
-
-  // Create a mapping of reference timestamps to user timestamps
-  const refToUserMap = new Map<number, number>();
-  for (const [refIdx, userIdx] of path) {
-    if (refIdx >= 0 && refIdx < referencePitchData.length &&
-        userIdx >= 0 && userIdx < userPitchData.length) {
-      refToUserMap.set(refIdx, userIdx);
-    }
-  }
-
-  // Calculate duration per syllable from reference
-  const totalRefDuration = referencePitchData[referencePitchData.length - 1].timestamp;
-  const syllableDuration = totalRefDuration / syllables.length;
+  const syllableDuration = userDuration / syllables.length;
 
   const syllableMatches: SwaraSyllableMatch[] = [];
-  let totalAccuracy = 0;
+  let totalSwaraScore = 0;
+  let totalVolumeScore = 0;
 
   syllables.forEach((syllable, index) => {
     const startTime = index * syllableDuration;
     const endTime = (index + 1) * syllableDuration;
 
-    // Get aligned pitch data for this syllable
-    const syllableRefPitches: PitchData[] = [];
-    const syllableUserPitches: PitchData[] = [];
+    // Get user pitch data for this syllable
+    const syllableUserPitches = userPitchData.filter(
+      p => p.timestamp >= startTime && p.timestamp < endTime
+    );
 
-    referencePitchData.forEach((refPitch, refIdx) => {
-      if (refPitch.timestamp >= startTime && refPitch.timestamp < endTime) {
-        syllableRefPitches.push(refPitch);
-        const userIdx = refToUserMap.get(refIdx);
-        if (userIdx !== undefined && userIdx < userPitchData.length) {
-          syllableUserPitches.push(userPitchData[userIdx]);
-        }
-      }
-    });
-
-    if (syllableUserPitches.length === 0 || syllableRefPitches.length === 0) {
+    if (syllableUserPitches.length === 0) {
       syllableMatches.push({
         syllableIndex: index,
         expectedSwara: syllable.swara,
@@ -526,57 +542,93 @@ export function analyzeSwaraAccuracy(
         accuracy: 'poor',
         semitonesDiff: 999,
       });
-      totalAccuracy += 40; // Give some baseline score even for no data
+      totalSwaraScore += 30; // Minimal credit for silence
+      totalVolumeScore += 0;
       return;
     }
 
-    // Calculate average frequencies
-    const avgRefFreq = syllableRefPitches.reduce((sum, p) => sum + p.frequency, 0) / syllableRefPitches.length;
+    // Calculate RELATIVE pitch for this syllable
     const avgUserFreq = syllableUserPitches.reduce((sum, p) => sum + p.frequency, 0) / syllableUserPitches.length;
+    const relativeSemitones = 12 * Math.log2(avgUserFreq / userBasePitch);
 
-    // Calculate pitch difference in semitones
-    const semitonesDiff = Math.abs(12 * Math.log2(avgUserFreq / avgRefFreq));
-
-    // Much more lenient thresholds - focus on relative pitch matching
-    let accuracy: 'perfect' | 'good' | 'fair' | 'poor';
-    let scoreContribution: number;
-    const detectedSwara: SwaraType = syllable.swara;
-
-    if (semitonesDiff < 1.0) {
-      // Within 1 semitone - PERFECT (was 0.5)
-      accuracy = 'perfect';
-      scoreContribution = 100;
-    } else if (semitonesDiff < 2.0) {
-      // Within 2 semitones - GOOD (was 1.0)
-      accuracy = 'good';
-      scoreContribution = 90;
-    } else if (semitonesDiff < 3.5) {
-      // Within 3.5 semitones - FAIR (was 2.0)
-      accuracy = 'fair';
-      scoreContribution = 75;
+    // Detect which swara the user actually sang
+    let detectedSwara: SwaraType;
+    if (relativeSemitones < -1) {
+      detectedSwara = 'anudhaata';
+    } else if (relativeSemitones > 3) {
+      detectedSwara = 'dheerga';
+    } else if (relativeSemitones > 1) {
+      detectedSwara = 'swarita';
     } else {
-      // More than 3.5 semitones off - still give partial credit
-      accuracy = 'poor';
-      scoreContribution = Math.max(50, 100 - semitonesDiff * 10);
+      detectedSwara = 'udhaata';
     }
 
-    totalAccuracy += scoreContribution;
+    // Score based on swara matching (did they hit the right note?)
+    let swaraScore: number;
+    let accuracy: 'perfect' | 'good' | 'fair' | 'poor';
+
+    if (detectedSwara === syllable.swara) {
+      // Perfect swara match!
+      swaraScore = 100;
+      accuracy = 'perfect';
+    } else {
+      // Calculate how far off they were
+      const expectedSemitones = getSwaraExpectedSemitones(syllable.swara);
+      const semitonesDiff = Math.abs(relativeSemitones - expectedSemitones);
+
+      if (semitonesDiff < 1.5) {
+        // Close to correct swara
+        swaraScore = 85;
+        accuracy = 'good';
+      } else if (semitonesDiff < 3) {
+        // Somewhat off
+        swaraScore = 60;
+        accuracy = 'fair';
+      } else {
+        // Way off
+        swaraScore = 30;
+        accuracy = 'poor';
+      }
+    }
+
+    // Calculate volume/confidence (RMS energy)
+    // Higher RMS = more confident voice
+    const volumeScore = Math.min(100, 50 + syllableUserPitches.length * 2); // Simple heuristic
+
+    totalSwaraScore += swaraScore;
+    totalVolumeScore += volumeScore;
 
     syllableMatches.push({
       syllableIndex: index,
       expectedSwara: syllable.swara,
       detectedSwara,
-      confidence: scoreContribution,
+      confidence: swaraScore,
       accuracy,
-      semitonesDiff,
+      semitonesDiff: Math.abs(relativeSemitones - getSwaraExpectedSemitones(syllable.swara)),
     });
   });
 
-  const swaraAccuracy = totalAccuracy / syllables.length;
+  const swaraAccuracy = totalSwaraScore / syllables.length;
+  const volumeAccuracy = totalVolumeScore / syllables.length;
+
+  // Overall score: 80% swara pattern + 20% voice confidence
+  const overallScore = swaraAccuracy * 0.8 + volumeAccuracy * 0.2;
 
   return {
     syllableMatches,
     swaraAccuracy: Math.round(swaraAccuracy),
-    overallScore: Math.round(swaraAccuracy),
+    overallScore: Math.round(overallScore),
   };
+}
+
+/**
+ * Get expected semitone offset for each swara type
+ */
+function getSwaraExpectedSemitones(swara: SwaraType): number {
+  switch (swara) {
+    case 'anudhaata': return -2;  // Low note
+    case 'udhaata': return 0;      // Base note
+    case 'swarita': return 2;      // High note
+    case 'dheerga': return 4;      // Very high note
+  }
 }
