@@ -168,8 +168,7 @@ function matchIndividualAksharas(
       swaraScore: 0,
       swaraMatch: false,
       overallScore: overallSimilarity,
-      accuracy: overallSimilarity >= 90 ? 'perfect' :
-                overallSimilarity >= 75 ? 'good' : 'fair'
+      accuracy: 'perfect' as const  // Show all as green when overall is good
     }));
   }
 
@@ -194,7 +193,7 @@ function matchIndividualAksharas(
       normalizedExpectedAkshara
     );
 
-    const pronunciationMatch = pronunciationScore >= 60;
+    const pronunciationMatch = pronunciationScore >= 50;
 
     results.push({
       syllableIndex: i,
@@ -210,9 +209,9 @@ function matchIndividualAksharas(
       swaraMatch: false,
 
       overallScore: pronunciationScore,
-      accuracy: pronunciationScore >= 90 ? 'perfect' :
-                pronunciationScore >= 75 ? 'good' :
-                pronunciationScore >= 60 ? 'fair' : 'poor'
+      accuracy: pronunciationScore >= 70 ? 'perfect' :  // Green for >= 70%
+                pronunciationScore >= 50 ? 'fair' :      // Orange for 50-69%
+                'poor'                                   // Red only for < 50%
     });
 
     // Move position forward
