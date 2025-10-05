@@ -130,15 +130,15 @@ function normalizeSanskritPhonetics(text: string): string {
  */
 function isVisargaSandhiVariant(str1: string, str2: string): boolean {
   // Visarga (ः) can be pronounced as 'h', 's', or be silent
-  const visargaVariants = [
+  const visargaVariants: Array<[RegExp, string]> = [
     [/ः/g, 'ह'],  // visarga -> ha
     [/ः/g, 'स्'], // visarga -> s with halant
     [/ः/g, ''],   // visarga silent
   ];
 
   for (const [pattern, replacement] of visargaVariants) {
-    if (str1.replace(pattern, replacement) === str2) return true;
-    if (str2.replace(pattern, replacement) === str1) return true;
+    if (str1.replace(pattern, replacement as string) === str2) return true;
+    if (str2.replace(pattern, replacement as string) === str1) return true;
   }
 
   return false;
