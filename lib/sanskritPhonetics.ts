@@ -114,10 +114,11 @@ export function extractFormants(audioBuffer: Float32Array, sampleRate: number): 
 
   try {
     // Dynamically import meyda (browser-only)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Meyda = require('meyda');
 
     // Extract spectral features
-    const features = Meyda.extract(['spectralCentroid', 'spectralFlatness', 'mfcc'], audioBuffer);
+    Meyda.extract(['spectralCentroid', 'spectralFlatness', 'mfcc'], audioBuffer);
 
     // Use spectral peaks to approximate formants
     const fft = performFFT(audioBuffer);
@@ -187,10 +188,11 @@ export function calculateSpectralCentroid(audioBuffer: Float32Array): number {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Meyda = require('meyda');
     const features = Meyda.extract('spectralCentroid', audioBuffer);
     return features || 0;
-  } catch (error) {
+  } catch {
     // Fallback calculation
     const spectrum = performFFT(audioBuffer);
     let weightedSum = 0;

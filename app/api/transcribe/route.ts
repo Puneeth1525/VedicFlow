@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
       confidence: 0.95, // Whisper doesn't provide confidence, assume high
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Transcription error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

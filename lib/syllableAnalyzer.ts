@@ -128,7 +128,6 @@ function matchIndividualAksharas(
     .replace(/[\u0300-\u036f]/g, '');
 
   const normalizedTranscript = normalizeText(transcribedText);
-  const normalizedExpected = normalizeText(expectedText);
 
   // Simple character-by-character alignment
   // This works when transcription is close to expected

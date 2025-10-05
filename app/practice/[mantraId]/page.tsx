@@ -10,7 +10,6 @@ import {
   PitchData,
   loadAndAnalyzeAudio,
   comparePitchSequences,
-  analyzeSwaraAccuracy,
   SwaraSyllableMatch,
   SyllableWithSwara,
   SwaraType,
@@ -150,9 +149,6 @@ export default function PracticePage() {
   const [playAllVerses, setPlayAllVerses] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [accuracyScore, setAccuracyScore] = useState<number | null>(null);
-  const [pitchAccuracy, setPitchAccuracy] = useState<number | null>(null);
-  const [rhythmAccuracy, setRhythmAccuracy] = useState<number | null>(null);
-  const [swaraAccuracy, setSwaraAccuracy] = useState<number | null>(null);
   const [syllableMatches, setSyllableMatches] = useState<SwaraSyllableMatch[]>([]);
   const [comprehensiveResults, setComprehensiveResults] = useState<SyllableAnalysisResult[]>([]);
   const [phoneticAccuracy, setPhoneticAccuracy] = useState<number | null>(null);
@@ -278,9 +274,6 @@ export default function PracticePage() {
       // Reset previous data
       userPitchDataRef.current = [];
       setAccuracyScore(null);
-      setPitchAccuracy(null);
-      setRhythmAccuracy(null);
-      setSwaraAccuracy(null);
       setSyllableMatches([]);
       setCurrentSyllableIndex(-1);
 
@@ -376,8 +369,6 @@ export default function PracticePage() {
             // No swara analysis for now - only pronunciation via Whisper AI
 
             setAccuracyScore(result.overallScore);
-            setPitchAccuracy(result.pitchAccuracy);
-            setRhythmAccuracy(result.rhythmAccuracy);
 
             console.log('Analysis result:', result);
             }
