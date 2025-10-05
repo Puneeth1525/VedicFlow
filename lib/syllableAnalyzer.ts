@@ -85,11 +85,12 @@ export async function analyzeMantraChanting(
   // Step 5: Generate feedback
   const feedback: string[] = [];
 
-  if (overallSimilarity >= 85) {
+  // More lenient feedback thresholds to account for phonetically similar sounds
+  if (overallSimilarity >= 80) {
     feedback.push('Excellent pronunciation! 🎉');
-  } else if (overallSimilarity >= 70) {
+  } else if (overallSimilarity >= 65) {
     feedback.push('Good pronunciation! Keep practicing.');
-  } else if (overallSimilarity >= 50) {
+  } else if (overallSimilarity >= 45) {
     feedback.push('Fair pronunciation. Try listening to the reference audio again.');
   } else {
     feedback.push('Keep practicing! Listen carefully to the reference audio.');
@@ -165,7 +166,8 @@ function matchIndividualAksharas(
       }
     }
 
-    const pronunciationMatch = pronunciationScore >= 70;
+    // More lenient threshold - phonetically similar sounds should pass
+    const pronunciationMatch = pronunciationScore >= 60;
 
     results.push({
       syllableIndex: i,
