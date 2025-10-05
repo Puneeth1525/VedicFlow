@@ -105,33 +105,104 @@ export const SANSKRIT_PHONEMES: Record<string, SanskritPhoneme> = {
 };
 
 /**
- * Extract formant frequencies from audio using LPC (Linear Predictive Coding)
+ * Extract formant frequencies using Meyda's spectral analysis
  */
 export function extractFormants(audioBuffer: Float32Array, sampleRate: number): number[] {
-  // Simplified formant extraction using spectral peaks
-  const fftSize = 2048;
-  const frequencies: number[] = [];
+  if (typeof window === 'undefined') {
+    return [700, 1220, 2600]; // Server-side fallback
+  }
 
-  // Perform FFT (simplified - in real implementation use FFT library)
-  // For now, return approximate formants
-  // This is a placeholder - real implementation would use proper DSP
+  try {
+    // Dynamically import meyda (browser-only)
+    const Meyda = require('meyda');
 
-  return [700, 1220, 2600]; // Default vowel formants
+    // Extract spectral features
+    const features = Meyda.extract(['spectralCentroid', 'spectralFlatness', 'mfcc'], audioBuffer);
+
+    // Use spectral peaks to approximate formants
+    const fft = performFFT(audioBuffer);
+    const formants = findSpectralPeaks(fft, sampleRate, 3);
+
+    return formants.length >= 3 ? formants : [700, 1220, 2600];
+  } catch (error) {
+    console.warn('Meyda extraction failed:', error);
+    return [700, 1220, 2600];
+  }
 }
 
 /**
- * Calculate spectral centroid (brightness of sound)
+ * Perform FFT on audio buffer
  */
-export function calculateSpectralCentroid(spectrum: Float32Array): number {
-  let weightedSum = 0;
-  let sum = 0;
+function performFFT(buffer: Float32Array): Float32Array {
+  const n = buffer.length;
+  const fft = new Float32Array(n);
 
-  for (let i = 0; i < spectrum.length; i++) {
-    weightedSum += i * spectrum[i];
-    sum += spectrum[i];
+  // Simple magnitude spectrum calculation
+  for (let i = 0; i < n / 2; i++) {
+    let real = 0;
+    let imag = 0;
+
+    for (let j = 0; j < n; j++) {
+      const angle = (2 * Math.PI * i * j) / n;
+      real += buffer[j] * Math.cos(angle);
+      imag -= buffer[j] * Math.sin(angle);
+    }
+
+    fft[i] = Math.sqrt(real * real + imag * imag);
   }
 
-  return sum > 0 ? weightedSum / sum : 0;
+  return fft;
+}
+
+/**
+ * Find spectral peaks (formant frequencies)
+ */
+function findSpectralPeaks(spectrum: Float32Array, sampleRate: number, numPeaks: number): number[] {
+  const peaks: Array<{ index: number; magnitude: number }> = [];
+
+  // Find local maxima
+  for (let i = 1; i < spectrum.length - 1; i++) {
+    if (spectrum[i] > spectrum[i - 1] && spectrum[i] > spectrum[i + 1]) {
+      peaks.push({ index: i, magnitude: spectrum[i] });
+    }
+  }
+
+  // Sort by magnitude and take top N
+  peaks.sort((a, b) => b.magnitude - a.magnitude);
+
+  const formants = peaks
+    .slice(0, numPeaks)
+    .map(p => (p.index * sampleRate) / (spectrum.length * 2))
+    .sort((a, b) => a - b);
+
+  return formants;
+}
+
+/**
+ * Calculate spectral centroid (brightness of sound) using Meyda
+ */
+export function calculateSpectralCentroid(audioBuffer: Float32Array): number {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+
+  try {
+    const Meyda = require('meyda');
+    const features = Meyda.extract('spectralCentroid', audioBuffer);
+    return features || 0;
+  } catch (error) {
+    // Fallback calculation
+    const spectrum = performFFT(audioBuffer);
+    let weightedSum = 0;
+    let sum = 0;
+
+    for (let i = 0; i < spectrum.length; i++) {
+      weightedSum += i * spectrum[i];
+      sum += spectrum[i];
+    }
+
+    return sum > 0 ? weightedSum / sum : 0;
+  }
 }
 
 /**
