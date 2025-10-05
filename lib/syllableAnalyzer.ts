@@ -148,7 +148,32 @@ function matchIndividualAksharas(
     }));
   }
 
-  // If not perfect match, try to align syllables
+  // Calculate overall similarity to determine if we should show all as correct
+  const overallSimilarity = calculatePhoneticSimilarity(
+    normalizedTranscript,
+    normalizedExpected
+  );
+
+  // If overall pronunciation is good (>= 75%), mark all aksharas as correct
+  // This handles cases where Whisper transcribes with minor variations or spacing
+  if (overallSimilarity >= 75) {
+    return syllables.map((s, i) => ({
+      syllableIndex: i,
+      expectedText: s.text,
+      transcribedText: s.text,
+      expectedSwara: s.swara,
+      pronunciationScore: overallSimilarity,
+      pronunciationMatch: true,
+      detectedSwara: 'udhaata' as const,
+      swaraScore: 0,
+      swaraMatch: false,
+      overallScore: overallSimilarity,
+      accuracy: overallSimilarity >= 90 ? 'perfect' :
+                overallSimilarity >= 75 ? 'good' : 'fair'
+    }));
+  }
+
+  // If not good enough, try to align syllables for detailed feedback
   const results: SyllableAnalysisResult[] = [];
   let transcriptPosition = 0;
 
