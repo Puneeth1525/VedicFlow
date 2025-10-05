@@ -3,6 +3,8 @@
  * This provides real-time transcription for pronunciation verification
  */
 
+import { getSanskritPhoneticDistance } from './sanskrit/sandhiRules';
+
 export interface TranscriptionResult {
   transcript: string;
   confidence: number;
@@ -65,140 +67,6 @@ export async function transcribeAudioToText(
       success: false,
     };
   }
-}
-
-/**
- * Sanskrit consonant groups - phonetically similar sounds
- * These are often confused by non-native speakers and ASR systems
- */
-const SANSKRIT_CONSONANT_GROUPS = {
-  // Dental vs Cerebral (retroflex) - same voicing/aspiration
-  dental_cerebral: [
-    ['त', 'ट'], // ta / ṭa (unvoiced, unaspirated)
-    ['थ', 'ठ'], // tha / ṭha (unvoiced, aspirated)
-    ['द', 'ड'], // da / ḍa (voiced, unaspirated)
-    ['ध', 'ढ'], // dha / ḍha (voiced, aspirated)
-    ['न', 'ण'], // na / ṇa (nasal)
-  ],
-  // Voicing pairs within same articulation
-  voicing_pairs: [
-    ['क', 'ग'], // ka / ga
-    ['ख', 'घ'], // kha / gha
-    ['च', 'ज'], // ca / ja
-    ['छ', 'झ'], // cha / jha
-    ['त', 'द'], // ta / da
-    ['थ', 'ध'], // tha / dha
-    ['ट', 'ड'], // ṭa / ḍa
-    ['ठ', 'ढ'], // ṭha / ḍha
-    ['प', 'ब'], // pa / ba
-    ['फ', 'भ'], // pha / bha
-  ],
-  // Aspiration pairs within same articulation
-  aspiration_pairs: [
-    ['क', 'ख'], // ka / kha
-    ['ग', 'घ'], // ga / gha
-    ['च', 'छ'], // ca / cha
-    ['ज', 'झ'], // ja / jha
-    ['त', 'थ'], // ta / tha
-    ['द', 'ध'], // da / dha
-    ['ट', 'ठ'], // ṭa / ṭha
-    ['ड', 'ढ'], // ḍa / ḍha
-    ['प', 'फ'], // pa / pha
-    ['ब', 'भ'], // ba / bha
-  ],
-  // Sibilants - often confused
-  sibilants: [['श', 'ष', 'स']], // śa / ṣa / sa
-};
-
-/**
- * Normalize Sanskrit text for phonetic comparison
- * Handles various orthographic equivalents
- */
-function normalizeSanskritPhonetics(text: string): string {
-  return text
-    // Remove explicit halant/virama followed by same consonant (द्ध -> ध, त्त -> त, etc.)
-    .replace(/(.)\u094D\1/g, '$1')
-    // Normalize zero-width characters
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    // Normalize whitespace
-    .replace(/\s+/g, '');
-}
-
-/**
- * Check if two strings differ by visarga sandhi
- * e.g., "दन्तिः" vs "दन्तिह" or "दन्तिस्" or "दन्ति"
- */
-function isVisargaSandhiVariant(str1: string, str2: string): boolean {
-  // Visarga (ः) can be pronounced as 'h', 's', or be silent
-  const visargaVariants: Array<[RegExp, string]> = [
-    [/ः/g, 'ह'],  // visarga -> ha
-    [/ः/g, 'स्'], // visarga -> s with halant
-    [/ः/g, ''],   // visarga silent
-  ];
-
-  for (const [pattern, replacement] of visargaVariants) {
-    if (str1.replace(pattern, replacement as string) === str2) return true;
-    if (str2.replace(pattern, replacement as string) === str1) return true;
-  }
-
-  return false;
-}
-
-/**
- * Check if two consonants differ only by halant vs 'u' vowel
- * e.g., त् (t with halant) vs तु (tu)
- */
-function isHalantVsUVariant(str1: string, str2: string): boolean {
-  // Check if one has halant and other has 'u' vowel
-  const halantPattern = /([क-ह])्$/;
-  const uPattern = /([क-ह])\u0941$/;
-
-  const match1Halant = str1.match(halantPattern);
-  const match2U = str2.match(uPattern);
-  const match1U = str1.match(uPattern);
-  const match2Halant = str2.match(halantPattern);
-
-  // Check if base consonant is same
-  if (match1Halant && match2U && match1Halant[1] === match2U[1]) return true;
-  if (match1U && match2Halant && match1U[1] === match2Halant[1]) return true;
-
-  return false;
-}
-
-/**
- * Calculate phonetic distance between two Sanskrit characters
- * Returns 0 for identical, 0.3 for similar sounds, 1.0 for different sounds
- */
-function getSanskritPhoneticDistance(char1: string, char2: string): number {
-  if (char1 === char2) return 0;
-
-  // Normalize both for phonetic comparison
-  const norm1 = normalizeSanskritPhonetics(char1);
-  const norm2 = normalizeSanskritPhonetics(char2);
-
-  if (norm1 === norm2) return 0; // Phonetically identical
-
-  // Check visarga sandhi (ः can be h, s, or silent)
-  if (isVisargaSandhiVariant(char1, char2)) return 0.1; // Sandhi variation
-
-  // Check halant vs 'u' vowel (Whisper often adds 'u' where there should be halant)
-  if (isHalantVsUVariant(char1, char2)) return 0.1; // Very minor difference
-
-  // Check if they're in the same phonetic group
-  for (const [groupName, pairs] of Object.entries(SANSKRIT_CONSONANT_GROUPS)) {
-    for (const group of pairs) {
-      if (group.includes(char1) && group.includes(char2)) {
-        // Dental/cerebral confusion is most common - treat as very similar
-        if (groupName === 'dental_cerebral') return 0.25;
-        // Voicing/aspiration confusion - moderately similar
-        if (groupName === 'voicing_pairs' || groupName === 'aspiration_pairs') return 0.4;
-        // Sibilants - somewhat similar
-        if (groupName === 'sibilants') return 0.5;
-      }
-    }
-  }
-
-  return 1.0; // Completely different sounds
 }
 
 /**
