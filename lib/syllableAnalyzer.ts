@@ -1,301 +1,219 @@
 /**
- * Comprehensive Syllable Analyzer
- * Combines phonetic analysis + swara detection + pronunciation verification
+ * Syllable Analyzer using Whisper AI for pronunciation verification
+ * Simple approach: transcribe audio and match aksharas
  */
 
-import { PitchData, SwaraType, SyllableWithSwara } from './pitchDetection';
-import {
-  analyzeSyllable,
-  extractFormants,
-  calculateSpectralCentroid,
-  SANSKRIT_PHONEMES,
-  PhoneticFeatures,
-} from './sanskritPhonetics';
+import { SwaraType, SyllableWithSwara } from './pitchDetection';
+import { transcribeAudioToText, calculatePhoneticSimilarity } from './speechRecognition';
 
 export interface SyllableAnalysisResult {
   syllableIndex: number;
   expectedText: string;
+  transcribedText: string;
   expectedSwara: SwaraType;
 
-  // Phonetic analysis
-  phoneticScore: number;
-  phoneticFeedback: string;
-  articulationCorrect: boolean;
+  // Only pronunciation matching for now
+  pronunciationScore: number;
+  pronunciationMatch: boolean;
 
-  // Swara (pitch pattern) analysis
+  // Placeholder for future swara analysis
   detectedSwara: SwaraType;
   swaraScore: number;
   swaraMatch: boolean;
 
-  // Combined metrics
   overallScore: number;
-  confidence: number;
   accuracy: 'perfect' | 'good' | 'fair' | 'poor';
 }
 
 export interface ComprehensiveAnalysisResult {
   syllableResults: SyllableAnalysisResult[];
-  phoneticAccuracy: number;   // Did they say the right syllables?
-  swaraAccuracy: number;       // Did they hit the right notes?
-  pronunciationScore: number;  // How clear was pronunciation?
-  confidenceScore: number;     // Voice volume/boldness
+  transcribedText: string;
+  expectedText: string;
+  pronunciationAccuracy: number;
   overallScore: number;
   feedback: string[];
 }
 
 /**
- * Analyze a single syllable comprehensively
+ * Main analysis function - uses Whisper AI to transcribe and match
  */
-async function analyzeSyllableComprehensive(
-  expectedSyllable: SyllableWithSwara,
-  syllableIndex: number,
-  audioBuffer: Float32Array,
-  sampleRate: number,
-  userBasePitch: number
-): Promise<SyllableAnalysisResult> {
-  // 1. Extract acoustic features
-  const formants = extractFormants(audioBuffer, sampleRate);
-  const spectralCentroid = calculateSpectralCentroid(audioBuffer);
+export async function analyzeMantraChanting(
+  userAudioBuffer: AudioBuffer,
+  syllables: SyllableWithSwara[],
+  referenceAudioBuffer?: AudioBuffer,
+  verseStartTime?: number,
+  verseEndTime?: number,
+  userAudioBlob?: Blob
+): Promise<ComprehensiveAnalysisResult> {
 
-  // Calculate RMS energy (voice boldness)
-  const rms = Math.sqrt(
-    audioBuffer.reduce((sum, val) => sum + val * val, 0) / audioBuffer.length
+  console.log('\n🎯 Starting Whisper-based pronunciation analysis...');
+
+  // Step 1: Transcribe user's audio using Whisper
+  if (!userAudioBlob) {
+    console.error('❌ No audio blob provided for transcription');
+    return createEmptyResult(syllables);
+  }
+
+  const transcriptionResult = await transcribeAudioToText(userAudioBlob);
+
+  if (!transcriptionResult.success) {
+    console.error('❌ Whisper transcription failed');
+    return createEmptyResult(syllables);
+  }
+
+  console.log(`✅ Whisper transcribed: "${transcriptionResult.transcript}"`);
+
+  // Step 2: Extract expected text from syllables
+  const expectedText = syllables.map(s => s.text).join('');
+  console.log(`📝 Expected text: "${expectedText}"`);
+
+  // Step 3: Calculate overall similarity
+  const overallSimilarity = calculatePhoneticSimilarity(
+    transcriptionResult.transcript,
+    expectedText
   );
-  const confidenceScore = Math.min(100, rms * 1000); // Normalize
 
-  // 2. Phonetic analysis - Check if they said the right syllable
-  let phoneticScore = 0;
-  let phoneticFeedback = '';
-  let articulationCorrect = false;
+  console.log(`📊 Overall pronunciation match: ${overallSimilarity}%`);
 
-  // Extract first character for phonetic analysis
-  const firstChar = expectedSyllable.text[0];
-  const phonemeData = SANSKRIT_PHONEMES[firstChar];
+  // Step 4: Match individual aksharas
+  const syllableResults = matchIndividualAksharas(
+    syllables,
+    transcriptionResult.transcript,
+    expectedText
+  );
 
-  if (phonemeData) {
-    const result = analyzeSyllable(firstChar, audioBuffer, sampleRate);
-    phoneticScore = result.score;
-    phoneticFeedback = result.feedback;
-    articulationCorrect = result.score >= 70;
+  // Step 5: Generate feedback
+  const feedback: string[] = [];
+
+  if (overallSimilarity >= 85) {
+    feedback.push('Excellent pronunciation! 🎉');
+  } else if (overallSimilarity >= 70) {
+    feedback.push('Good pronunciation! Keep practicing.');
+  } else if (overallSimilarity >= 50) {
+    feedback.push('Fair pronunciation. Try listening to the reference audio again.');
   } else {
-    phoneticScore = 50; // Default for unknown characters
-    phoneticFeedback = 'Character not in phoneme database';
+    feedback.push('Keep practicing! Listen carefully to the reference audio.');
   }
 
-  // 3. Swara (pitch) analysis - Check if they hit the right note
-  // Calculate average pitch for this syllable
-  let avgFrequency = 0;
-  let pitchCount = 0;
-
-  // Use autocorrelation on the buffer to get pitch
-  const pitch = estimatePitch(audioBuffer, sampleRate);
-  if (pitch > 0) {
-    avgFrequency = pitch;
-    pitchCount = 1;
+  // Add akshara-specific feedback
+  const incorrectAksharas = syllableResults.filter(r => !r.pronunciationMatch);
+  if (incorrectAksharas.length > 0 && incorrectAksharas.length <= 3) {
+    const akharaTexts = incorrectAksharas.map(r => syllables[r.syllableIndex].text);
+    feedback.push(`Focus on: ${akharaTexts.join(', ')}`);
   }
-
-  // Calculate relative pitch (in semitones from user's base)
-  const relativeSemitones = pitchCount > 0
-    ? 12 * Math.log2(avgFrequency / userBasePitch)
-    : 0;
-
-  // Detect which swara they sang
-  let detectedSwara: SwaraType;
-  if (relativeSemitones < -1) {
-    detectedSwara = 'anudhaata';
-  } else if (relativeSemitones > 3) {
-    detectedSwara = 'dheerga';
-  } else if (relativeSemitones > 1) {
-    detectedSwara = 'swarita';
-  } else {
-    detectedSwara = 'udhaata';
-  }
-
-  // Score swara matching
-  const swaraMatch = detectedSwara === expectedSyllable.swara;
-  const expectedSemitones = getSwaraExpectedSemitones(expectedSyllable.swara);
-  const semitoneDiff = Math.abs(relativeSemitones - expectedSemitones);
-
-  let swaraScore: number;
-  if (swaraMatch) {
-    swaraScore = 100;
-  } else if (semitoneDiff < 1.5) {
-    swaraScore = 85;
-  } else if (semitoneDiff < 3) {
-    swaraScore = 60;
-  } else {
-    swaraScore = 30;
-  }
-
-  // 4. Calculate overall score
-  // Weighting: 50% phonetic (right syllable) + 30% swara (right note) + 20% confidence (bold voice)
-  const overallScore =
-    phoneticScore * 0.5 +
-    swaraScore * 0.3 +
-    confidenceScore * 0.2;
-
-  // 5. Determine accuracy level
-  let accuracy: 'perfect' | 'good' | 'fair' | 'poor';
-  if (overallScore >= 90) accuracy = 'perfect';
-  else if (overallScore >= 75) accuracy = 'good';
-  else if (overallScore >= 60) accuracy = 'fair';
-  else accuracy = 'poor';
 
   return {
-    syllableIndex,
-    expectedText: expectedSyllable.text,
-    expectedSwara: expectedSyllable.swara,
-    phoneticScore,
-    phoneticFeedback,
-    articulationCorrect,
-    detectedSwara,
-    swaraScore,
-    swaraMatch,
-    overallScore,
-    confidence: confidenceScore,
-    accuracy,
+    syllableResults,
+    transcribedText: transcriptionResult.transcript,
+    expectedText,
+    pronunciationAccuracy: overallSimilarity,
+    overallScore: overallSimilarity,
+    feedback
   };
 }
 
 /**
- * Simple pitch estimation using autocorrelation
+ * Match individual aksharas by attempting word alignment
  */
-function estimatePitch(buffer: Float32Array, sampleRate: number): number {
-  const SIZE = buffer.length;
-  const MAX_SAMPLES = Math.floor(SIZE / 2);
+function matchIndividualAksharas(
+  syllables: SyllableWithSwara[],
+  transcribedText: string,
+  expectedText: string
+): SyllableAnalysisResult[] {
 
-  // Calculate RMS
-  let rms = 0;
-  for (let i = 0; i < SIZE; i++) {
-    rms += buffer[i] * buffer[i];
-  }
-  rms = Math.sqrt(rms / SIZE);
+  // Normalize both texts for comparison
+  const normalizeText = (text: string) => text
+    .replace(/\s+/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-  if (rms < 0.01) return -1;
+  const normalizedTranscript = normalizeText(transcribedText);
+  const normalizedExpected = normalizeText(expectedText);
 
-  // Autocorrelation
-  let bestOffset = -1;
-  let bestCorrelation = 0;
+  // Simple character-by-character alignment
+  // This works when transcription is close to expected
+  const results: SyllableAnalysisResult[] = [];
 
-  for (let offset = Math.floor(sampleRate / 1000); offset < Math.floor(sampleRate / 80); offset++) {
-    let correlation = 0;
-    for (let i = 0; i < MAX_SAMPLES; i++) {
-      correlation += buffer[i] * buffer[i + offset];
-    }
-
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestOffset = offset;
-    }
-  }
-
-  if (bestOffset > 0) {
-    return sampleRate / bestOffset;
-  }
-
-  return -1;
-}
-
-/**
- * Get expected semitone offset for each swara
- */
-function getSwaraExpectedSemitones(swara: SwaraType): number {
-  switch (swara) {
-    case 'anudhaata':
-      return -2;
-    case 'udhaata':
-      return 0;
-    case 'swarita':
-      return 2;
-    case 'dheerga':
-      return 4;
-  }
-}
-
-/**
- * Comprehensive analysis of full mantra chanting
- */
-export async function analyzeMantraChanting(
-  userAudioBuffer: AudioBuffer,
-  syllables: SyllableWithSwara[]
-): Promise<ComprehensiveAnalysisResult> {
-  const sampleRate = userAudioBuffer.sampleRate;
-  const channelData = userAudioBuffer.getChannelData(0);
-
-  // Calculate user's base pitch from entire recording
-  const userPitches: number[] = [];
-  const windowSize = Math.floor(sampleRate * 0.1); // 100ms windows
-
-  for (let i = 0; i < channelData.length - windowSize; i += windowSize / 2) {
-    const window = channelData.slice(i, i + windowSize);
-    const pitch = estimatePitch(window, sampleRate);
-    if (pitch > 0 && pitch < 800) {
-      userPitches.push(pitch);
-    }
-  }
-
-  const userBasePitch =
-    userPitches.length > 0
-      ? userPitches.sort((a, b) => a - b)[Math.floor(userPitches.length / 2)]
-      : 200; // default
-
-  // Split audio into syllable chunks (equal duration)
-  const duration = userAudioBuffer.duration;
-  const syllableDuration = duration / syllables.length;
-
-  const syllableResults: SyllableAnalysisResult[] = [];
-  const feedback: string[] = [];
-
-  // Analyze each syllable
   for (let i = 0; i < syllables.length; i++) {
-    const startSample = Math.floor(i * syllableDuration * sampleRate);
-    const endSample = Math.floor((i + 1) * syllableDuration * sampleRate);
-    const syllableBuffer = channelData.slice(startSample, endSample);
+    const expectedAkshara = syllables[i].text;
+    const normalizedExpectedAkshara = normalizeText(expectedAkshara);
 
-    const result = await analyzeSyllableComprehensive(
-      syllables[i],
-      i,
-      syllableBuffer,
-      sampleRate,
-      userBasePitch
-    );
+    // Try to find this akshara in the transcript around the expected position
+    // Calculate approximate position in transcript
+    const expectedPosition = Math.floor((i / syllables.length) * normalizedTranscript.length);
+    const searchStart = Math.max(0, expectedPosition - 2);
+    const searchEnd = Math.min(normalizedTranscript.length, expectedPosition + 3);
+    const searchWindow = normalizedTranscript.substring(searchStart, searchEnd);
 
-    syllableResults.push(result);
+    // Check if the akshara appears in the search window
+    const found = searchWindow.includes(normalizedExpectedAkshara);
 
-    // Generate feedback
-    if (!result.articulationCorrect) {
-      feedback.push(`Syllable "${result.expectedText}": ${result.phoneticFeedback}`);
+    // Calculate similarity score
+    let pronunciationScore = 0;
+    let transcribedChar = '';
+
+    if (found) {
+      pronunciationScore = 100;
+      transcribedChar = expectedAkshara;
+    } else {
+      // Try character-level match
+      if (expectedPosition < normalizedTranscript.length) {
+        transcribedChar = transcribedText.charAt(expectedPosition) || '';
+        pronunciationScore = calculatePhoneticSimilarity(
+          transcribedChar,
+          expectedAkshara
+        );
+      }
     }
-    if (!result.swaraMatch) {
-      feedback.push(
-        `Syllable "${result.expectedText}": Expected ${result.expectedSwara} swara, detected ${result.detectedSwara}`
-      );
-    }
+
+    const pronunciationMatch = pronunciationScore >= 70;
+
+    results.push({
+      syllableIndex: i,
+      expectedText: expectedAkshara,
+      transcribedText: transcribedChar,
+      expectedSwara: syllables[i].swara,
+      pronunciationScore,
+      pronunciationMatch,
+
+      // Placeholder - not analyzing swaras yet
+      detectedSwara: 'udhaata',
+      swaraScore: 0,
+      swaraMatch: false,
+
+      overallScore: pronunciationScore,
+      accuracy: pronunciationScore >= 90 ? 'perfect' :
+                pronunciationScore >= 75 ? 'good' :
+                pronunciationScore >= 60 ? 'fair' : 'poor'
+    });
   }
 
-  // Calculate aggregate scores
-  const phoneticAccuracy =
-    syllableResults.reduce((sum, r) => sum + r.phoneticScore, 0) / syllables.length;
+  return results;
+}
 
-  const swaraAccuracy =
-    syllableResults.reduce((sum, r) => sum + r.swaraScore, 0) / syllables.length;
-
-  const pronunciationScore =
-    syllableResults.filter(r => r.articulationCorrect).length / syllables.length * 100;
-
-  const confidenceScore =
-    syllableResults.reduce((sum, r) => sum + r.confidence, 0) / syllables.length;
-
-  const overallScore =
-    syllableResults.reduce((sum, r) => sum + r.overallScore, 0) / syllables.length;
-
+/**
+ * Create empty result when transcription fails
+ */
+function createEmptyResult(syllables: SyllableWithSwara[]): ComprehensiveAnalysisResult {
   return {
-    syllableResults,
-    phoneticAccuracy: Math.round(phoneticAccuracy),
-    swaraAccuracy: Math.round(swaraAccuracy),
-    pronunciationScore: Math.round(pronunciationScore),
-    confidenceScore: Math.round(confidenceScore),
-    overallScore: Math.round(overallScore),
-    feedback: feedback.slice(0, 5), // Top 5 issues
+    syllableResults: syllables.map((s, i) => ({
+      syllableIndex: i,
+      expectedText: s.text,
+      transcribedText: '',
+      expectedSwara: s.swara,
+      pronunciationScore: 0,
+      pronunciationMatch: false,
+      detectedSwara: 'udhaata',
+      swaraScore: 0,
+      swaraMatch: false,
+      overallScore: 0,
+      accuracy: 'poor'
+    })),
+    transcribedText: '',
+    expectedText: syllables.map(s => s.text).join(''),
+    pronunciationAccuracy: 0,
+    swaraAccuracy: 0,
+    overallScore: 0,
+    feedback: ['Audio transcription failed. Please try again.']
   };
 }

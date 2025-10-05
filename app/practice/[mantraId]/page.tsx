@@ -15,7 +15,7 @@ import {
   SyllableWithSwara,
   SwaraType,
 } from '@/lib/pitchDetection';
-import { AudioMLModel } from '@/lib/audioML';
+import { analyzeMantraChanting, SyllableAnalysisResult } from '@/lib/syllableAnalyzer';
 
 interface Paragraph {
   id: number;
@@ -42,6 +42,7 @@ const mantraData: Record<string, MantraData> = {
         audioStartTime: 0,
         audioEndTime: 9,
         sanskrit: [
+          { text: 'ओम्', swara: 'udhaata', romanization: 'Om' },
           { text: 'ए', swara: 'udhaata', romanization: 'E' },
           { text: 'क', swara: 'udhaata', romanization: 'ka' },
           { text: 'दं', swara: 'anudhaata', romanization: 'daṃ' },
@@ -92,7 +93,7 @@ const mantraData: Record<string, MantraData> = {
       {
         id: 1,
         sanskrit: [
-          { text: 'ॐ', swara: 'anudhaata', romanization: 'Om' },
+          { text: 'ओम्', swara: 'anudhaata', romanization: 'Om' },
           { text: 'भूः', swara: 'udhaata', romanization: 'Bhūḥ' },
           { text: 'भुवः', swara: 'udhaata', romanization: 'Bhuvaḥ' },
           { text: 'स्वः', swara: 'dheerga', romanization: 'Svaḥ' },
@@ -153,11 +154,14 @@ export default function PracticePage() {
   const [rhythmAccuracy, setRhythmAccuracy] = useState<number | null>(null);
   const [swaraAccuracy, setSwaraAccuracy] = useState<number | null>(null);
   const [syllableMatches, setSyllableMatches] = useState<SwaraSyllableMatch[]>([]);
+  const [comprehensiveResults, setComprehensiveResults] = useState<SyllableAnalysisResult[]>([]);
+  const [phoneticAccuracy, setPhoneticAccuracy] = useState<number | null>(null);
+  const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
   const [currentSyllableIndex, setCurrentSyllableIndex] = useState<number>(-1);
   const [showInfo, setShowInfo] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [referencePitchData, setReferencePitchData] = useState<PitchData[]>([]);
-  const [modelLoaded, setModelLoaded] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<'phonetic' | 'pitch'>('phonetic');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -165,7 +169,6 @@ export default function PracticePage() {
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const userPitchDataRef = useRef<PitchData[]>([]);
   const recordingStartTimeRef = useRef<number>(0);
-  const mlModelRef = useRef<AudioMLModel | null>(null);
 
   const currentParagraph = mantra.paragraphs.find((p) => p.id === selectedParagraph);
 
@@ -222,26 +225,7 @@ export default function PracticePage() {
     }
   }, [mantra.audioUrl]);
 
-  // Load ML model when component mounts
-  useEffect(() => {
-    const loadMLModel = async () => {
-      try {
-        // Load Teachable Machine model
-        const modelPath = `/models/${mantraId}/`;
-
-        mlModelRef.current = new AudioMLModel();
-        await mlModelRef.current.loadModel(modelPath);
-        setModelLoaded(true);
-        console.log('ML model loaded successfully for', mantraId);
-      } catch (error) {
-        console.log('ML model not available for this mantra:', error);
-        // Gracefully fallback to pitch-based detection
-        setModelLoaded(false);
-      }
-    };
-
-    loadMLModel();
-  }, [mantraId]);
+  // ML model removed - now using Whisper AI for pronunciation detection
 
   const togglePlayAudio = () => {
     if (!audioRef.current) return;
@@ -316,82 +300,92 @@ export default function PracticePage() {
         // Analyze the recorded audio
         setIsAnalyzing(true);
         try {
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const userPitchData = await loadAndAnalyzeAudio(audioUrl);
+          // Convert blob to AudioBuffer for comprehensive analysis
+          const arrayBuffer = await audioBlob.arrayBuffer();
+          const audioContext = new AudioContext();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-          console.log('User pitch data:', userPitchData.length, 'points');
-          console.log('Reference pitch data:', referencePitchData.length, 'points');
+          console.log('Audio buffer created:', audioBuffer.duration, 'seconds');
 
-          if (referencePitchData.length > 0 && userPitchData.length > 0 && currentParagraph) {
+          if (currentParagraph && analysisMode === 'phonetic') {
+            // Use comprehensive phonetic analysis
+            console.log('Running comprehensive phonetic analysis...');
+
+            // Load reference audio for comparison
+            let referenceAudioBuffer: AudioBuffer | undefined;
+            try {
+              const response = await fetch(mantra.audioUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              const audioContext = new AudioContext();
+              referenceAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+              audioContext.close();
+              console.log('Reference audio loaded for comparison');
+            } catch (error) {
+              console.warn('Could not load reference audio:', error);
+            }
+
+            const result = await analyzeMantraChanting(
+              audioBuffer,
+              currentParagraph.sanskrit,
+              referenceAudioBuffer,
+              currentParagraph.audioStartTime,
+              currentParagraph.audioEndTime,
+              audioBlob  // Pass the blob for speech recognition
+            );
+
+            console.log('Comprehensive analysis result:', result);
+
+            setAccuracyScore(result.overallScore);
+            setPhoneticAccuracy(result.pronunciationAccuracy);
+            setPronunciationScore(result.pronunciationAccuracy);
+
+            // Convert to syllable matches for UI
+            const matches: SwaraSyllableMatch[] = result.syllableResults.map(r => ({
+              syllableIndex: r.syllableIndex,
+              expectedSwara: r.expectedSwara,
+              detectedSwara: r.detectedSwara,
+              confidence: r.confidence,
+              accuracy: r.accuracy,
+              semitonesDiff: 0, // Not used in phonetic mode
+            }));
+
+            setSyllableMatches(matches);
+            setComprehensiveResults(result.syllableResults);
+
+            console.log('Phonetic Accuracy:', result.phoneticAccuracy);
+            console.log('Swara Accuracy:', result.swaraAccuracy);
+            console.log('Pronunciation Score:', result.pronunciationScore);
+            console.log('Overall Score:', result.overallScore);
+
+            if (result.feedback.length > 0) {
+              console.log('Feedback:', result.feedback.join('; '));
+            }
+          } else if (referencePitchData.length > 0 && currentParagraph) {
+            // Fallback to pitch-only analysis
+            console.log('Running pitch-only analysis...');
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const userPitchData = await loadAndAnalyzeAudio(audioUrl);
+
+            console.log('User pitch data:', userPitchData.length, 'points');
+            console.log('Reference pitch data:', referencePitchData.length, 'points');
+
+            if (userPitchData.length > 0) {
             // Basic pitch comparison
             const result = comparePitchSequences(referencePitchData, userPitchData);
 
-            // Swara-level analysis
-            let swaraResult;
-
-            // Use ML model if available, otherwise fallback to pitch-based detection
-            if (modelLoaded && mlModelRef.current && selectedParagraph === 1) {
-              try {
-                // Analyze with ML model (only for Verse 1 since that's what you trained)
-                // First, convert blob to AudioBuffer
-                const arrayBuffer = await audioBlob.arrayBuffer();
-                const audioContext = new AudioContext();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-                const predictions = await mlModelRef.current.predictFromAudioBuffer(audioBuffer);
-                audioContext.close();
-
-                console.log('ML Predictions:', predictions);
-
-                // Get the top prediction (ignoring "Background Noise")
-                const versePrediction = predictions.find(p => p.className !== 'Background Noise') || predictions[0];
-
-                // Calculate accuracy based on ML confidence
-                // If it detected "Verse-1" with high confidence, that's good!
-                let mlAccuracy = 0;
-                if (versePrediction.className === 'Verse-1') {
-                  // Convert probability (0-1) to percentage with good scaling
-                  mlAccuracy = versePrediction.probability * 100;
-                } else {
-                  // Detected as background noise or low confidence
-                  mlAccuracy = Math.max(0, (1 - versePrediction.probability) * 50);
-                }
-
-                swaraResult = {
-                  syllableMatches: [],
-                  swaraAccuracy: Math.round(mlAccuracy),
-                  overallScore: Math.round(mlAccuracy),
-                };
-
-                console.log(`ML Accuracy: ${mlAccuracy}% (Detected: ${versePrediction.className}, Confidence: ${(versePrediction.probability * 100).toFixed(1)}%)`);
-              } catch (error) {
-                console.error('ML prediction error, falling back to pitch detection:', error);
-                swaraResult = analyzeSwaraAccuracy(
-                  referencePitchData,
-                  userPitchData,
-                  currentParagraph.sanskrit
-                );
-              }
-            } else {
-              // Fallback to pitch-based detection for other verses or if model not loaded
-              swaraResult = analyzeSwaraAccuracy(
-                referencePitchData,
-                userPitchData,
-                currentParagraph.sanskrit
-              );
-            }
+            // No swara analysis for now - only pronunciation via Whisper AI
 
             setAccuracyScore(result.overallScore);
             setPitchAccuracy(result.pitchAccuracy);
             setRhythmAccuracy(result.rhythmAccuracy);
-            setSwaraAccuracy(swaraResult.swaraAccuracy);
-            setSyllableMatches(swaraResult.syllableMatches);
 
             console.log('Analysis result:', result);
-            console.log('Swara analysis:', swaraResult);
+            }
           } else {
             alert('Unable to analyze audio. Please try again.');
           }
+
+          audioContext.close();
         } catch (error) {
           console.error('Error analyzing audio:', error);
           alert('Error analyzing audio. Please try again.');
@@ -542,7 +536,7 @@ export default function PracticePage() {
               </h3>
 
               {/* Sanskrit with Swara indicators */}
-              <div className="flex flex-wrap gap-3 mb-8">
+              <div className="flex flex-wrap gap-x-4 gap-y-12 md:gap-x-3 md:gap-y-12 mb-8">
                 {currentParagraph?.sanskrit.map((syllable: SyllableWithSwara, index: number) => {
                   const match = syllableMatches.find(m => m.syllableIndex === index);
                   const isRecordingActive = isRecording && currentSyllableIndex === index;
@@ -583,15 +577,6 @@ export default function PracticePage() {
                         </div>
                       )}
 
-                      {/* Feedback indicator */}
-                      {hasFeedback && match && (
-                        <div className="absolute -top-10 right-0 text-xs font-semibold">
-                          {match.accuracy === 'perfect' && '✓'}
-                          {match.accuracy === 'good' && '~'}
-                          {match.accuracy === 'fair' && '!'}
-                          {match.accuracy === 'poor' && '✗'}
-                        </div>
-                      )}
                     </motion.div>
                   );
                 })}
@@ -633,7 +618,22 @@ export default function PracticePage() {
 
             {/* Recording Controls */}
             <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <h3 className="text-lg font-semibold mb-4 text-purple-300">Your Practice</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-purple-300">Your Practice</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-purple-300">Mode:</span>
+                  <button
+                    onClick={() => setAnalysisMode(analysisMode === 'phonetic' ? 'pitch' : 'phonetic')}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                      analysisMode === 'phonetic'
+                        ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                        : 'bg-white/10 text-purple-300 hover:bg-white/20'
+                    }`}
+                  >
+                    {analysisMode === 'phonetic' ? 'Phonetic' : 'Pitch-only'}
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 {!isRecording ? (
                   <motion.button
@@ -738,21 +738,15 @@ export default function PracticePage() {
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Pitch Accuracy</span>
+                      <span className="text-purple-300">Pronunciation Accuracy</span>
                       <span className="text-white font-medium">
-                        {pitchAccuracy !== null ? `${pitchAccuracy}%` : 'N/A'}
+                        {phoneticAccuracy !== null ? `${phoneticAccuracy.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Rhythm Accuracy</span>
+                      <span className="text-purple-300">Overall Score</span>
                       <span className="text-white font-medium">
-                        {rhythmAccuracy !== null ? `${rhythmAccuracy}%` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-300">Swara Accuracy</span>
-                      <span className="text-white font-medium">
-                        {swaraAccuracy !== null ? `${swaraAccuracy}%` : 'N/A'}
+                        {pronunciationScore !== null ? `${pronunciationScore.toFixed(1)}%` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
@@ -791,6 +785,52 @@ export default function PracticePage() {
               )}
             </AnimatePresence>
 
+            {/* Swara Feedback - Only show if there are improvements to make */}
+            {comprehensiveResults.length > 0 && analysisMode === 'phonetic' && (
+              <AnimatePresence>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 backdrop-blur-lg border border-purple-400/30"
+                >
+                  <h3 className="text-lg font-semibold mb-4 text-purple-300 flex items-center gap-2">
+                    <span className="text-2xl">✨</span>
+                    Swara Guidance
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    {comprehensiveResults
+                      .filter(r => !r.swaraMatch && r.swaraScore < 50)
+                      .slice(0, 5)
+                      .map((result, idx) => (
+                        <motion.div
+                          key={idx}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.1 }}
+                          className="flex items-start gap-3 p-3 rounded-lg bg-white/5"
+                        >
+                          <span className="text-xl">{result.expectedText}</span>
+                          <div className="flex-1">
+                            <p className="text-purple-200">
+                              Try <span className="text-cyan-400 font-semibold">{result.expectedSwara === 'anudhaata' ? 'lower pitch (↓)' : result.expectedSwara === 'udhaata' ? 'base pitch (—)' : result.expectedSwara === 'swarita' ? 'rising pitch (↗)' : 'high sustained pitch (⤴)'}</span>
+                            </p>
+                            <p className="text-purple-400 text-xs mt-1">
+                              Currently: {result.detectedSwara === 'anudhaata' ? 'lower (↓)' : result.detectedSwara === 'udhaata' ? 'base (—)' : result.detectedSwara === 'swarita' ? 'rising (↗)' : 'high (⤴)'}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    {comprehensiveResults.filter(r => !r.swaraMatch && r.swaraScore < 50).length === 0 && (
+                      <p className="text-green-400 flex items-center gap-2">
+                        <span className="text-2xl">🎉</span>
+                        Excellent swara accuracy! Keep up the great work!
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            )}
+
             {/* Tips */}
             <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
               <h3 className="text-lg font-semibold mb-4 text-purple-300">Practice Tips</h3>
@@ -812,8 +852,12 @@ export default function PracticePage() {
                   <span>Practice in a quiet environment for better accuracy</span>
                 </li>
                 <li className="flex gap-2 pt-2 border-t border-white/10">
-                  <span className="text-yellow-400">⚠</span>
-                  <span className="text-yellow-200">Note: Current scoring is pitch-based only. For best results, chant the exact words and match duration closely.</span>
+                  <span className="text-cyan-400">ℹ</span>
+                  <span className="text-cyan-200">
+                    {analysisMode === 'phonetic'
+                      ? 'Phonetic mode analyzes syllable accuracy, swara patterns, and pronunciation clarity.'
+                      : 'Pitch mode analyzes only pitch and rhythm matching with the reference audio.'}
+                  </span>
                 </li>
               </ul>
             </div>
