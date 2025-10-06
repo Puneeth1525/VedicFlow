@@ -242,7 +242,6 @@ export default function PracticePage() {
     setSyllableMatches([]);
     setComprehensiveResults([]);
     setPhoneticAccuracy(null);
-    setPronunciationScore(null);
     setSwaraAccuracy(null);
     setIsPronunciationReady(false);
     setIsSwaraReady(false);
