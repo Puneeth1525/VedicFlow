@@ -153,6 +153,9 @@ export default function PracticePage() {
   const [comprehensiveResults, setComprehensiveResults] = useState<SyllableAnalysisResult[]>([]);
   const [phoneticAccuracy, setPhoneticAccuracy] = useState<number | null>(null);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
+  const [swaraAccuracy, setSwaraAccuracy] = useState<number | null>(null);
+  const [isPronunciationReady, setIsPronunciationReady] = useState(false);
+  const [isSwaraReady, setIsSwaraReady] = useState(false);
   const [currentSyllableIndex, setCurrentSyllableIndex] = useState<number>(-1);
   const [showInfo, setShowInfo] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -207,6 +210,19 @@ export default function PracticePage() {
     }
   };
 
+  const getSwaraFeedbackColor = (accuracy: 'perfect' | 'good' | 'fair' | 'poor') => {
+    switch (accuracy) {
+      case 'perfect':
+        return 'text-green-400 bg-green-500/20';
+      case 'good':
+        return 'text-yellow-400 bg-yellow-500/20';
+      case 'fair':
+        return 'text-orange-400 bg-orange-500/20';
+      case 'poor':
+        return 'text-red-400 bg-red-500/20';
+    }
+  };
+
   // Load reference audio pitch data when mantra changes
   useEffect(() => {
     if (mantra.audioUrl) {
@@ -228,6 +244,9 @@ export default function PracticePage() {
     setComprehensiveResults([]);
     setPhoneticAccuracy(null);
     setPronunciationScore(null);
+    setSwaraAccuracy(null);
+    setIsPronunciationReady(false);
+    setIsSwaraReady(false);
   }, [selectedParagraph]);
 
   // ML model removed - now using Whisper AI for pronunciation detection
@@ -284,7 +303,12 @@ export default function PracticePage() {
       userPitchDataRef.current = [];
       setAccuracyScore(null);
       setSyllableMatches([]);
+      setComprehensiveResults([]);
       setCurrentSyllableIndex(-1);
+      setIsPronunciationReady(false);
+      setIsSwaraReady(false);
+      setSwaraAccuracy(null);
+      setPhoneticAccuracy(null);
 
       // Start media recorder for playback
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -310,8 +334,8 @@ export default function PracticePage() {
           console.log('Audio buffer created:', audioBuffer.duration, 'seconds');
 
           if (currentParagraph && analysisMode === 'phonetic') {
-            // Use comprehensive phonetic analysis
-            console.log('Running comprehensive phonetic analysis...');
+            // Use comprehensive phonetic + swara analysis with progressive updates
+            console.log('Running comprehensive analysis...');
 
             // Load reference audio for comparison
             let referenceAudioBuffer: AudioBuffer | undefined;
@@ -326,6 +350,7 @@ export default function PracticePage() {
               console.warn('Could not load reference audio:', error);
             }
 
+            // Run the full analysis (pronunciation + swara)
             const result = await analyzeMantraChanting(
               audioBuffer,
               currentParagraph.sanskrit,
@@ -337,11 +362,13 @@ export default function PracticePage() {
 
             console.log('Comprehensive analysis result:', result);
 
-            setAccuracyScore(result.overallScore);
+            // Update pronunciation results first
             setPhoneticAccuracy(result.pronunciationAccuracy);
             setPronunciationScore(result.pronunciationAccuracy);
+            setAccuracyScore(result.pronunciationAccuracy);
+            setIsPronunciationReady(true);
 
-            // Convert to syllable matches for UI
+            // Convert to syllable matches for UI (pronunciation only at first)
             const matches: SwaraSyllableMatch[] = result.syllableResults.map(r => ({
               syllableIndex: r.syllableIndex,
               expectedSwara: r.expectedSwara,
@@ -354,7 +381,20 @@ export default function PracticePage() {
             setSyllableMatches(matches);
             setComprehensiveResults(result.syllableResults);
 
+            // Update swara results
+            if (result.swaraAccuracy !== undefined) {
+              setSwaraAccuracy(result.swaraAccuracy);
+              setIsSwaraReady(true);
+
+              // Update overall score to include swara (60% pronunciation + 40% swara)
+              const combinedScore = Math.round(
+                result.pronunciationAccuracy * 0.6 + result.swaraAccuracy * 0.4
+              );
+              setAccuracyScore(combinedScore);
+            }
+
             console.log('Pronunciation Accuracy:', result.pronunciationAccuracy);
+            console.log('Swara Accuracy:', result.swaraAccuracy);
             console.log('Overall Score:', result.overallScore);
 
             if (result.feedback.length > 0) {
@@ -534,11 +574,13 @@ export default function PracticePage() {
               </h3>
 
               {/* Sanskrit with Swara indicators */}
-              <div className="flex flex-wrap gap-x-4 gap-y-12 md:gap-x-3 md:gap-y-12 mb-8">
+              <div className="flex flex-wrap gap-x-4 gap-y-16 md:gap-x-3 md:gap-y-16 mb-8">
                 {currentParagraph?.sanskrit.map((syllable: SyllableWithSwara, index: number) => {
                   const match = syllableMatches.find(m => m.syllableIndex === index);
+                  const comprehensiveResult = comprehensiveResults.find(r => r.syllableIndex === index);
                   const isRecordingActive = isRecording && currentSyllableIndex === index;
                   const hasFeedback = match !== undefined;
+                  const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
 
                   return (
                     <motion.div
@@ -548,8 +590,12 @@ export default function PracticePage() {
                       transition={{ delay: index * 0.05 }}
                       className="relative"
                     >
-                      {/* Swara symbol above */}
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl">
+                      {/* Swara symbol above with feedback - just colored arrow, no box */}
+                      <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all ${
+                        hasSwaraFeedback
+                          ? `${getSwaraFeedbackColor(comprehensiveResult.accuracy).split(' ')[0]} text-3xl font-bold drop-shadow-lg`
+                          : 'text-gray-400 text-2xl'
+                      }`}>
                         {getSwaraSymbol(syllable.swara)}
                       </div>
 
@@ -735,20 +781,26 @@ export default function PracticePage() {
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-purple-300">Pronunciation Accuracy</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-300">Pronunciation</span>
                       <span className="text-white font-medium">
-                        {phoneticAccuracy !== null ? `${phoneticAccuracy.toFixed(1)}%` : 'N/A'}
+                        {isPronunciationReady
+                          ? `${phoneticAccuracy !== null ? phoneticAccuracy.toFixed(1) : '0'}%`
+                          : <Loader2 className="w-4 h-4 animate-spin" />}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-300">Overall Score</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-300">Swara Accuracy</span>
                       <span className="text-white font-medium">
-                        {pronunciationScore !== null ? `${pronunciationScore.toFixed(1)}%` : 'N/A'}
+                        {isSwaraReady
+                          ? `${swaraAccuracy !== null ? swaraAccuracy.toFixed(1) : '0'}%`
+                          : isPronunciationReady
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : 'Pending...'}
                       </span>
                     </div>
                     <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                      <span className="text-purple-300 font-semibold">Overall</span>
+                      <span className="text-purple-300 font-semibold">Overall Score</span>
                       <span className="text-white font-bold">
                         {accuracyScore}%
                       </span>
@@ -783,7 +835,7 @@ export default function PracticePage() {
               )}
             </AnimatePresence>
 
-            {/* Swara Feedback - Only show if there are improvements to make */}
+            {/* Feedback Section - Pronunciation & Swara Errors */}
             {comprehensiveResults.length > 0 && analysisMode === 'phonetic' && (
               <AnimatePresence>
                 <motion.div
@@ -792,69 +844,87 @@ export default function PracticePage() {
                   className="mb-6 p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 backdrop-blur-lg border border-purple-400/30"
                 >
                   <h3 className="text-lg font-semibold mb-4 text-purple-300 flex items-center gap-2">
-                    <span className="text-2xl">✨</span>
-                    Swara Guidance
+                    <span className="text-2xl">💡</span>
+                    Feedback
                   </h3>
-                  <div className="space-y-3 text-sm">
-                    {comprehensiveResults
-                      .filter(r => !r.swaraMatch && r.swaraScore < 50)
-                      .slice(0, 5)
-                      .map((result, idx) => (
-                        <motion.div
-                          key={idx}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.1 }}
-                          className="flex items-start gap-3 p-3 rounded-lg bg-white/5"
-                        >
-                          <span className="text-xl">{result.expectedText}</span>
-                          <div className="flex-1">
-                            <p className="text-purple-200">
-                              Try <span className="text-cyan-400 font-semibold">{result.expectedSwara === 'anudhaata' ? 'lower pitch (↓)' : result.expectedSwara === 'udhaata' ? 'base pitch (—)' : result.expectedSwara === 'swarita' ? 'rising pitch (↗)' : 'high sustained pitch (⤴)'}</span>
-                            </p>
-                            <p className="text-purple-400 text-xs mt-1">
-                              Currently: {result.detectedSwara === 'anudhaata' ? 'lower (↓)' : result.detectedSwara === 'udhaata' ? 'base (—)' : result.detectedSwara === 'swarita' ? 'rising (↗)' : 'high (⤴)'}
-                            </p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    {comprehensiveResults.filter(r => !r.swaraMatch && r.swaraScore < 50).length === 0 && (
-                      <p className="text-green-400 flex items-center gap-2">
-                        <span className="text-2xl">🎉</span>
-                        Excellent swara accuracy! Keep up the great work!
-                      </p>
-                    )}
+
+                  {/* Pronunciation Errors */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">📝 Pronunciation</h4>
+                    <div className="space-y-2 text-sm">
+                      {comprehensiveResults
+                        .filter(r => !r.pronunciationMatch || r.pronunciationScore < 70)
+                        .slice(0, 3)
+                        .map((result, idx) => (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="p-2 rounded-lg bg-white/5 text-purple-200"
+                          >
+                            Heard "<span className="text-orange-300">{result.transcribedText}</span>" instead of "<span className="text-cyan-300">{result.expectedText}</span>"
+                          </motion.div>
+                        ))}
+                      {comprehensiveResults.filter(r => !r.pronunciationMatch || r.pronunciationScore < 70).length === 0 && (
+                        <p className="text-green-400 text-sm">✓ Perfect pronunciation!</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Swara Errors */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">🎵 Swaras</h4>
+                    <div className="space-y-2 text-sm">
+                      {comprehensiveResults
+                        .filter(r => !r.swaraMatch)
+                        .slice(0, 3)
+                        .map((result, idx) => (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="p-2 rounded-lg bg-white/5 text-purple-200"
+                          >
+                            "<span className="text-xl">{result.expectedText}</span>" is <span className="text-cyan-300">{result.expectedSwara}</span> but heard <span className="text-orange-300">{result.detectedSwara}</span>
+                          </motion.div>
+                        ))}
+                      {comprehensiveResults.filter(r => !r.swaraMatch).length === 0 && (
+                        <p className="text-green-400 text-sm">✓ Perfect swara accuracy!</p>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               </AnimatePresence>
             )}
 
-            {/* Tips */}
+            {/* Tips - 4 Steps to Learn Vedic Chanting */}
             <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <h3 className="text-lg font-semibold mb-4 text-purple-300">Practice Tips</h3>
+              <h3 className="text-lg font-semibold mb-4 text-purple-300">4 Steps to Learn Vedic Chanting</h3>
               <ul className="space-y-3 text-sm text-purple-200">
-                <li className="flex gap-2">
-                  <span className="text-purple-400">•</span>
-                  <span>Listen to the reference multiple times before recording</span>
+                <li className="flex gap-3">
+                  <span className="text-cyan-400 font-bold shrink-0">Step 1:</span>
+                  <span><span className="font-semibold text-purple-100">Recite slowly</span> - Focus on pronouncing each akshara correctly. No swaras, no sandhi rules yet.</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-purple-400">•</span>
-                  <span>Pay attention to pitch changes indicated by swara markers</span>
+                <li className="flex gap-3">
+                  <span className="text-cyan-400 font-bold shrink-0">Step 2:</span>
+                  <span><span className="font-semibold text-purple-100">Apply sandhi</span> - Speed up slightly and combine syllables using sandhi rules (e.g., एकदंताय → ekadantāya).</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-purple-400">•</span>
-                  <span>Start slowly and gradually increase your speed</span>
+                <li className="flex gap-3">
+                  <span className="text-cyan-400 font-bold shrink-0">Step 3:</span>
+                  <span><span className="font-semibold text-purple-100">Add swaras slowly</span> - Chant with correct pitch changes (udātta, anudātta, swarita). Listen carefully to the reference.</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-purple-400">•</span>
-                  <span>Practice in a quiet environment for better accuracy</span>
+                <li className="flex gap-3">
+                  <span className="text-cyan-400 font-bold shrink-0">Step 4:</span>
+                  <span><span className="font-semibold text-purple-100">Flow naturally</span> - After perfecting steps 1-3, chant smoothly in one continuous flow with proper rhythm.</span>
                 </li>
-                <li className="flex gap-2 pt-2 border-t border-white/10">
-                  <span className="text-cyan-400">ℹ</span>
+                <li className="flex gap-2 pt-3 border-t border-white/10 mt-3">
+                  <span className="text-cyan-400">💡</span>
                   <span className="text-cyan-200">
                     {analysisMode === 'phonetic'
-                      ? 'Phonetic mode analyzes syllable accuracy, swara patterns, and pronunciation clarity.'
-                      : 'Pitch mode analyzes only pitch and rhythm matching with the reference audio.'}
+                      ? 'This app analyzes pronunciation and swara accuracy to help you master all 4 steps.'
+                      : 'Pitch mode focuses on swara and rhythm matching.'}
                   </span>
                 </li>
               </ul>

@@ -33,6 +33,7 @@ export interface ComprehensiveAnalysisResult {
   transcribedText: string;
   expectedText: string;
   pronunciationAccuracy: number;
+  swaraAccuracy?: number;
   overallScore: number;
   feedback: string[];
 }
@@ -101,6 +102,12 @@ export async function analyzeMantraChanting(
   // Step 6: Combine pronunciation and swara scores
   const syllableResults = combineResults(pronunciationResults, swaraResults);
 
+  // Calculate swara accuracy
+  const swaraMatches = swaraResults.filter(r => r.swaraMatch).length;
+  const swaraAccuracy = swaraResults.length > 0
+    ? Math.round((swaraMatches / swaraResults.length) * 100)
+    : 0;
+
   // Step 7: Generate feedback
   const feedback: string[] = [];
 
@@ -127,6 +134,7 @@ export async function analyzeMantraChanting(
     transcribedText: transcriptionResult.transcript,
     expectedText,
     pronunciationAccuracy: overallSimilarity,
+    swaraAccuracy,
     overallScore: overallSimilarity,
     feedback
   };
@@ -274,7 +282,8 @@ async function analyzeSwaras(
       index: seg.index,
       startTime: seg.startTime,
       endTime: seg.endTime,
-      expectedSwara: seg.expectedSwara as SwaraType
+      expectedSwara: seg.expectedSwara as SwaraType,
+      text: seg.text  // Add syllable text for better logging
     }))
   );
 

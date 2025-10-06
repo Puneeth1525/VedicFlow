@@ -55,23 +55,27 @@ export class SyllableSegmenter {
       energy.push(Math.sqrt(sum / frameSize));
     }
 
-    // Smooth energy using moving average
-    const smoothed = this.movingAverage(energy, 3);
+    // Smooth energy using moving average (larger window for less noise)
+    const smoothed = this.movingAverage(energy, 7);
 
     // Normalize
     const maxEnergy = Math.max(...smoothed);
     const normalized = smoothed.map(e => e / maxEnergy);
 
     // Detect peaks in energy (onsets)
-    const threshold = 0.15;  // Energy threshold
-    const minDistance = Math.floor(sampleRate * 0.08 / hopSize); // Min 80ms between syllables
+    const threshold = 0.25;  // Higher threshold - more conservative
+    const minDistance = Math.floor(sampleRate * 0.15 / hopSize); // Min 150ms between syllables
 
     let lastOnset = -minDistance;
 
-    for (let i = 1; i < normalized.length - 1; i++) {
-      // Peak detection: current > previous AND current > next AND above threshold
-      if (normalized[i] > normalized[i - 1] &&
-          normalized[i] > normalized[i + 1] &&
+    for (let i = 2; i < normalized.length - 2; i++) {
+      // Stronger peak detection: current must be clearly higher than neighbors
+      const isPeak = normalized[i] > normalized[i - 1] &&
+                     normalized[i] > normalized[i + 1] &&
+                     normalized[i] > normalized[i - 2] &&
+                     normalized[i] > normalized[i + 2];
+
+      if (isPeak &&
           normalized[i] > threshold &&
           i - lastOnset >= minDistance) {
         const time = (i * hopSize) / sampleRate;
@@ -91,30 +95,17 @@ export class SyllableSegmenter {
     syllables: SyllableWithSwara[],
     totalDuration: number
   ): SyllableTimeSegment[] {
-    const segments: SyllableTimeSegment[] = [];
+    // For now, always use uniform distribution for reliability
+    // Onset detection needs more tuning for Vedic chanting
+    console.log(`📊 Using uniform time distribution (onset detection needs tuning)`);
+    return this.uniformDistribution(syllables, totalDuration);
 
-    // If we have more or fewer onsets than syllables, distribute evenly as fallback
-    if (onsets.length < syllables.length - 2 || onsets.length > syllables.length + 3) {
-      console.warn(`⚠️ Onset count mismatch. Using uniform distribution.`);
-      return this.uniformDistribution(syllables, totalDuration);
-    }
-
-    // Use onsets as boundaries
-    for (let i = 0; i < syllables.length; i++) {
-      const startTime = onsets[i] || (i / syllables.length) * totalDuration;
-      const endTime = onsets[i + 1] || ((i + 1) / syllables.length) * totalDuration;
-
-      segments.push({
-        index: i,
-        startTime,
-        endTime,
-        duration: endTime - startTime,
-        text: syllables[i].text,
-        expectedSwara: syllables[i].swara
-      });
-    }
-
-    return segments;
+    // TODO: Re-enable onset-based segmentation after improving detection
+    // const segments: SyllableTimeSegment[] = [];
+    // if (onsets.length < syllables.length - 1 || onsets.length > syllables.length + 2) {
+    //   console.warn(`⚠️ Onset count mismatch (${onsets.length} vs ${syllables.length}). Using uniform distribution.`);
+    //   return this.uniformDistribution(syllables, totalDuration);
+    // }
   }
 
   /**

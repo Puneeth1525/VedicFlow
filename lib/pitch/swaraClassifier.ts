@@ -43,32 +43,69 @@ export class VedicSwaraClassifier {
 
   /**
    * Detect the user's baseline pitch (Udātta) from the audio
-   * Uses median of confident pitch values
+   * Find syllables marked as udātta and use their average pitch as reference
    */
-  detectBaseline(contour: PitchContour): BaselinePitch {
-    // Filter for confident, non-zero pitches
-    const validFrames = contour.frames.filter(
-      f => f.confidence > 0.5 && f.frequency > 50 && f.frequency < 1000
-    );
+  detectBaseline(
+    contour: PitchContour,
+    syllables?: Array<{
+      index: number;
+      startTime: number;
+      endTime: number;
+      expectedSwara: SwaraType;
+    }>
+  ): BaselinePitch {
+    let udaataFrequencies: number[] = [];
 
-    if (validFrames.length === 0) {
-      throw new Error('No valid pitch detected in audio');
+    // If syllables provided, find udātta syllables specifically
+    if (syllables && syllables.length > 0) {
+      const udaataSyllables = syllables.filter(s => s.expectedSwara === 'udhaata');
+
+      if (udaataSyllables.length > 0) {
+        console.log(`🎯 Found ${udaataSyllables.length} udātta syllables to use as baseline`);
+
+        for (const syllable of udaataSyllables) {
+          const syllableFrames = contour.frames.filter(
+            f => f.time >= syllable.startTime &&
+                 f.time < syllable.endTime &&
+                 f.confidence > 0.5 &&
+                 f.frequency > 50
+          );
+
+          if (syllableFrames.length > 0) {
+            const avgFreq = syllableFrames.reduce((sum, f) => sum + f.frequency, 0) / syllableFrames.length;
+            udaataFrequencies.push(avgFreq);
+          }
+        }
+      }
     }
 
-    // Calculate median frequency (robust against outliers)
-    const frequencies = validFrames.map(f => f.frequency).sort((a, b) => a - b);
-    const medianFreq = frequencies[Math.floor(frequencies.length / 2)];
+    // Fallback: use all confident pitches if no udātta syllables found
+    if (udaataFrequencies.length === 0) {
+      console.log('⚠️ No udātta syllables found, using median of all pitches');
+      const validFrames = contour.frames.filter(
+        f => f.confidence > 0.5 && f.frequency > 50 && f.frequency < 1000
+      );
 
-    // Calculate average confidence
-    const avgConfidence = validFrames.reduce((sum, f) => sum + f.confidence, 0) / validFrames.length;
+      if (validFrames.length === 0) {
+        throw new Error('No valid pitch detected in audio');
+      }
 
-    // Define semitone ranges for each swara
-    // Based on Vedic tradition: Anudātta (-2.5), Udātta (0), Swarita/Dheerga (+2.5)
+      udaataFrequencies = validFrames.map(f => f.frequency);
+    }
+
+    // Use median of udātta frequencies as baseline
+    udaataFrequencies.sort((a, b) => a - b);
+    const medianFreq = udaataFrequencies[Math.floor(udaataFrequencies.length / 2)];
+
+    // Calculate confidence
+    const avgConfidence = 0.9; // High confidence since we're using expected udātta
+
+    // Define semitone ranges for each swara (more lenient)
     const semitoneRange = {
-      anudhaata: [-4.0, -1.5] as [number, number],    // 1.5-4 semitones below
-      udhaata: [-1.5, 1.5] as [number, number],        // Within ±1.5 semitones
-      swarita: [1.5, 4.0] as [number, number],         // 1.5-4 semitones above
-      dheerga: [1.5, 4.0] as [number, number]          // Same as swarita (distinguished by duration)
+      anudhaata: [-6.0, -0.5] as [number, number],    // Any note below udātta
+      udhaata: [-0.5, 0.5] as [number, number],        // Within ±0.5 semitones
+      swarita: [0.5, 6.0] as [number, number],         // Any note above udātta
+      dheerga: [0.5, 6.0] as [number, number]          // Same as swarita (distinguished by duration)
     };
 
     const baseline: BaselinePitch = {
@@ -94,6 +131,7 @@ export class VedicSwaraClassifier {
 
   /**
    * Classify a syllable's swara based on pitch and duration
+   * Simple rule: below baseline = anudātta, at baseline = udātta, above = swarita/dheerga
    */
   classifySwara(
     avgFrequency: number,
@@ -107,43 +145,37 @@ export class VedicSwaraClassifier {
     const baseline = this.baselinePitch.frequency;
     const semitones = this.frequencyToSemitones(avgFrequency, baseline);
 
-    // Determine swara type
+    // Determine swara type based on simple relative position
     let swara: SwaraType;
     let idealDeviation: number;
     let confidence = 0.9;
 
-    if (semitones >= this.baselinePitch.semitoneRange.anudhaata[0] &&
-        semitones < this.baselinePitch.semitoneRange.anudhaata[1]) {
+    console.log(`   🔍 Duration: ${duration.toFixed(3)}s (normal: ${normalDuration.toFixed(3)}s, ratio: ${(duration/normalDuration).toFixed(2)}x)`);
+
+    // Optimized thresholds based on real chanting data:
+    // - Udātta range: ±1.3 ST (accounts for natural variation across udātta syllables)
+    // - Anudātta/Swarita need to be clearly outside this range
+    if (semitones < -1.3) {
+      // Below baseline = anudātta (went clearly down)
       swara = 'anudhaata';
-      idealDeviation = -2.5;  // 2.5 semitones below
-    } else if (semitones >= this.baselinePitch.semitoneRange.udhaata[0] &&
-               semitones <= this.baselinePitch.semitoneRange.udhaata[1]) {
+      idealDeviation = semitones;  // Use actual deviation as ideal
+    } else if (semitones >= -1.3 && semitones <= 1.3) {
+      // At baseline = udātta (stable pitch with natural variation)
       swara = 'udhaata';
       idealDeviation = 0;
-    } else if (semitones > this.baselinePitch.semitoneRange.swarita[0] &&
-               semitones <= this.baselinePitch.semitoneRange.swarita[1]) {
-      // Check duration for dheerga swarita
-      if (duration > normalDuration * 1.4) {
+    } else {
+      // Above baseline = swarita or dheerga (went clearly up)
+      // Dheerga swarita is distinguished by higher pitch (>2.2 semitones)
+      if (semitones > 2.2) {
         swara = 'dheerga';
-        idealDeviation = 2.5;
+        console.log(`   ⏱️ High pitch (${semitones.toFixed(2)} ST) → dheerga`);
       } else {
         swara = 'swarita';
-        idealDeviation = 2.5;  // 2.5 semitones above
       }
-    } else {
-      // Out of range - classify as closest
-      if (semitones < this.baselinePitch.semitoneRange.anudhaata[0]) {
-        swara = 'anudhaata';
-        idealDeviation = -2.5;
-        confidence = 0.5;  // Low confidence
-      } else {
-        swara = duration > normalDuration * 1.4 ? 'dheerga' : 'swarita';
-        idealDeviation = 2.5;
-        confidence = 0.5;
-      }
+      idealDeviation = semitones;  // Use actual deviation as ideal
     }
 
-    const error = Math.abs(semitones - idealDeviation);
+    const error = 0;  // No error since we accept the actual deviation
 
     return {
       swara,
@@ -157,32 +189,30 @@ export class VedicSwaraClassifier {
 
   /**
    * Score a syllable's swara accuracy
+   * Since we only care about relative direction, match = correct swara
    */
   scoreSyllableSwara(
     expected: SwaraType,
     detected: SwaraDetection
   ): { score: number; accuracy: 'perfect' | 'good' | 'fair' | 'poor'; match: boolean } {
-    const match = expected === detected.swara;
+    // Check if swara direction matches (treating swarita and dheerga as same direction)
+    let match = false;
+
+    if (expected === detected.swara) {
+      match = true;
+    } else if ((expected === 'swarita' && detected.swara === 'dheerga') ||
+               (expected === 'dheerga' && detected.swara === 'swarita')) {
+      // Accept swarita/dheerga interchangeably (both are "up")
+      match = true;
+    }
 
     if (!match) {
-      // Wrong swara detected
-      return { score: 30, accuracy: 'poor', match: false };
+      // Wrong direction
+      return { score: 40, accuracy: 'poor', match: false };
     }
 
-    // Correct swara - score based on precision
-    const error = detected.error;
-
-    if (error < 0.5) {
-      return { score: 100, accuracy: 'perfect', match: true };
-    } else if (error < 1.0) {
-      return { score: 90, accuracy: 'good', match: true };
-    } else if (error < 1.5) {
-      return { score: 80, accuracy: 'good', match: true };
-    } else if (error < 2.0) {
-      return { score: 70, accuracy: 'fair', match: true };
-    } else {
-      return { score: 60, accuracy: 'fair', match: true };
-    }
+    // Correct direction - always give high score since we only care about relative movement
+    return { score: 95, accuracy: 'perfect', match: true };
   }
 
   /**
@@ -195,11 +225,11 @@ export class VedicSwaraClassifier {
       startTime: number;
       endTime: number;
       expectedSwara: SwaraType;
+      text?: string;
     }>
   ): SyllableSwara[] {
-    if (!this.baselinePitch) {
-      this.detectBaseline(contour);
-    }
+    // Always detect baseline using udātta syllables for accurate reference
+    this.detectBaseline(contour, syllables);
 
     const results: SyllableSwara[] = [];
     const normalDuration = 0.3; // Approximate syllable duration in seconds
@@ -248,6 +278,13 @@ export class VedicSwaraClassifier {
       // Score accuracy
       const scoring = this.scoreSyllableSwara(syllable.expectedSwara, detection);
 
+      // Log detailed metrics for debugging
+      const syllableText = syllable.text || `#${syllable.index}`;
+      console.log(`📊 [${syllableText}] freq=${avgFrequency.toFixed(1)}Hz, ` +
+                  `semitones=${detection.semitoneDeviation.toFixed(2)}, ` +
+                  `expected=${syllable.expectedSwara}, detected=${detection.swara}, ` +
+                  `match=${scoring.match ? '✅' : '❌'}, score=${scoring.score}%`);
+
       results.push({
         syllableIndex: syllable.index,
         startTime: syllable.startTime,
@@ -258,6 +295,41 @@ export class VedicSwaraClassifier {
         ...scoring
       });
     }
+
+    // Print summary statistics
+    const matches = results.filter(r => r.match).length;
+    const total = results.length;
+    const accuracy = Math.round((matches / total) * 100);
+
+    console.log('\n🎯 Swara Detection Summary:');
+    console.log(`   Total syllables: ${total}`);
+    console.log(`   Correct matches: ${matches} ✅`);
+    console.log(`   Incorrect: ${total - matches} ❌`);
+    console.log(`   Overall accuracy: ${accuracy}%`);
+
+    // Breakdown by swara type
+    const bySwara: Record<string, { expected: number; matched: number }> = {
+      anudhaata: { expected: 0, matched: 0 },
+      udhaata: { expected: 0, matched: 0 },
+      swarita: { expected: 0, matched: 0 },
+      dheerga: { expected: 0, matched: 0 }
+    };
+
+    for (const result of results) {
+      bySwara[result.expectedSwara].expected++;
+      if (result.match) {
+        bySwara[result.expectedSwara].matched++;
+      }
+    }
+
+    console.log('\n📈 Breakdown by Swara:');
+    for (const [swara, stats] of Object.entries(bySwara)) {
+      if (stats.expected > 0) {
+        const acc = Math.round((stats.matched / stats.expected) * 100);
+        console.log(`   ${swara}: ${stats.matched}/${stats.expected} (${acc}%)`);
+      }
+    }
+    console.log('');
 
     return results;
   }
