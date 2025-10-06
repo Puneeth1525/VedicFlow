@@ -362,7 +362,6 @@ export default function PracticePage() {
 
             // Update pronunciation results first
             setPhoneticAccuracy(result.pronunciationAccuracy);
-            setPronunciationScore(result.pronunciationAccuracy);
             setAccuracyScore(result.pronunciationAccuracy);
             setIsPronunciationReady(true);
 
