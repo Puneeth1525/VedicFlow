@@ -3,7 +3,7 @@
  * Detects Udātta, Anudātta, Swarita, and Dīrgha Swarita based on relative pitch
  */
 
-import { PitchContour, PitchFrame } from './crepePitchDetector';
+import { PitchContour } from './crepePitchDetector';
 import { SwaraType } from '../pitchDetection';
 
 export interface BaselinePitch {
@@ -148,7 +148,7 @@ export class VedicSwaraClassifier {
     // Determine swara type based on simple relative position
     let swara: SwaraType;
     let idealDeviation: number;
-    let confidence = 0.9;
+    const confidence = 0.9;
 
     console.log(`   🔍 Duration: ${duration.toFixed(3)}s (normal: ${normalDuration.toFixed(3)}s, ratio: ${(duration/normalDuration).toFixed(2)}x)`);
 

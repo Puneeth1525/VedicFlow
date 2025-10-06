@@ -152,7 +152,6 @@ export default function PracticePage() {
   const [syllableMatches, setSyllableMatches] = useState<SwaraSyllableMatch[]>([]);
   const [comprehensiveResults, setComprehensiveResults] = useState<SyllableAnalysisResult[]>([]);
   const [phoneticAccuracy, setPhoneticAccuracy] = useState<number | null>(null);
-  const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
   const [swaraAccuracy, setSwaraAccuracy] = useState<number | null>(null);
   const [isPronunciationReady, setIsPronunciationReady] = useState(false);
   const [isSwaraReady, setIsSwaraReady] = useState(false);
@@ -863,7 +862,7 @@ export default function PracticePage() {
                             transition={{ delay: idx * 0.1 }}
                             className="p-2 rounded-lg bg-white/5 text-purple-200"
                           >
-                            Heard "<span className="text-orange-300">{result.transcribedText}</span>" instead of "<span className="text-cyan-300">{result.expectedText}</span>"
+                            Heard &ldquo;<span className="text-orange-300">{result.transcribedText}</span>&rdquo; instead of &ldquo;<span className="text-cyan-300">{result.expectedText}</span>&rdquo;
                           </motion.div>
                         ))}
                       {comprehensiveResults.filter(r => !r.pronunciationMatch || r.pronunciationScore < 70).length === 0 && (
@@ -887,7 +886,7 @@ export default function PracticePage() {
                             transition={{ delay: idx * 0.1 }}
                             className="p-2 rounded-lg bg-white/5 text-purple-200"
                           >
-                            "<span className="text-xl">{result.expectedText}</span>" is <span className="text-cyan-300">{result.expectedSwara}</span> but heard <span className="text-orange-300">{result.detectedSwara}</span>
+                            &ldquo;<span className="text-xl">{result.expectedText}</span>&rdquo; is <span className="text-cyan-300">{result.expectedSwara}</span> but heard <span className="text-orange-300">{result.detectedSwara}</span>
                           </motion.div>
                         ))}
                       {comprehensiveResults.filter(r => !r.swaraMatch).length === 0 && (

@@ -6,8 +6,6 @@
  * while maintaining accuracy for relative pitch detection in Vedic chanting.
  */
 
-import * as tf from '@tensorflow/tfjs';
-
 export interface PitchFrame {
   time: number;        // Time in seconds
   frequency: number;   // Fundamental frequency in Hz

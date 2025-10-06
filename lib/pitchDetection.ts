@@ -446,6 +446,7 @@ export interface SwaraSyllableMatch {
  * Calculate relative pitch (swara) for each syllable
  * Converts absolute frequencies to relative scale positions
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function calculateRelativeSwaras(pitchData: PitchData[]): Array<{ swara: SwaraType; confidence: number }> {
   if (pitchData.length === 0) return [];
 
@@ -513,6 +514,7 @@ export function analyzeSwaraAccuracy(
   const refFrequencies = referencePitchData.map(p => p.frequency).sort((a, b) => a - b);
   const userFrequencies = userPitchData.map(p => p.frequency).sort((a, b) => a - b);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const refBasePitch = refFrequencies[Math.floor(refFrequencies.length / 2)];
   const userBasePitch = userFrequencies[Math.floor(userFrequencies.length / 2)];
 
