@@ -51,7 +51,7 @@ export class MLPitchDetector {
     const frames: PitchFrame[] = [];
 
     // Resample to 16kHz if needed
-    let processedAudio = audioData;
+    let processedAudio: Float32Array = audioData;
     if (audioBuffer.sampleRate !== this.sampleRate) {
       processedAudio = await this.resample(audioData, audioBuffer.sampleRate, this.sampleRate);
     }
