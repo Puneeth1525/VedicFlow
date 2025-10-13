@@ -16,11 +16,16 @@ import {
 } from '@/lib/pitchDetection';
 import { analyzeMantraChanting, SyllableAnalysisResult } from '@/lib/syllableAnalyzer';
 
-interface Paragraph {
+interface Line {
   id: number;
   sanskrit: SyllableWithSwara[];
   audioStartTime?: number; // in seconds
   audioEndTime?: number; // in seconds
+}
+
+interface Paragraph {
+  id: number;
+  lines: Line[];
 }
 
 interface MantraData {
@@ -38,49 +43,54 @@ const mantraData: Record<string, MantraData> = {
     paragraphs: [
       {
         id: 1,
-        audioStartTime: 0,
-        audioEndTime: 9,
-        sanskrit: [
-          { text: 'ओम्', swara: 'udhaata', romanization: 'Om' },
-          { text: 'ए', swara: 'udhaata', romanization: 'E' },
-          { text: 'क', swara: 'udhaata', romanization: 'ka' },
-          { text: 'दं', swara: 'anudhaata', romanization: 'daṃ' },
-          { text: 'ता', swara: 'udhaata', romanization: 'tā' },
-          { text: 'य', swara: 'swarita', romanization: 'ya' },
-          { text: 'वि', swara: 'anudhaata', romanization: 'vi' },
-          { text: 'द्म', swara: 'udhaata', romanization: 'dma' },
-          { text: 'हे', swara: 'swarita', romanization: 'he' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 2,
-        audioStartTime: 10,
-        audioEndTime: 15,
-        sanskrit: [
-          { text: 'व', swara: 'udhaata', romanization: 'Va' },
-          { text: 'क्र', swara: 'udhaata', romanization: 'kra' },
-          { text: 'तुं', swara: 'anudhaata', romanization: 'tuṃ' },
-          { text: 'डा', swara: 'udhaata', romanization: 'ḍā' },
-          { text: 'य', swara: 'swarita', romanization: 'ya' },
-          { text: 'धी', swara: 'udhaata', romanization: 'dhī' },
-          { text: 'म', swara: 'udhaata', romanization: 'ma' },
-          { text: 'हि', swara: 'udhaata', romanization: 'hi' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 3,
-        audioStartTime: 15,
-        audioEndTime: 999,
-        sanskrit: [
-          { text: 'त', swara: 'udhaata', romanization: 'Taṃ' },
-          { text: 'न्नो', swara: 'swarita', romanization: 'no' },
-          { text: 'द', swara: 'udhaata', romanization: 'daṃ' },
-          { text: 'न्तिः', swara: 'udhaata', romanization: 'tiḥ' },
-          { text: 'प्र', swara: 'udhaata', romanization: 'pra' },
-          { text: 'चो', swara: 'anudhaata', romanization: 'cho' },
-          { text: 'द', swara: 'udhaata', romanization: 'da' },
-          { text: 'यात्', swara: 'dheerga', romanization: 'yāt' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            audioStartTime: 0,
+            audioEndTime: 9,
+            sanskrit: [
+              { text: 'ओम्', swara: 'udhaata', romanization: 'Om' },
+              { text: 'ए', swara: 'udhaata', romanization: 'E' },
+              { text: 'क', swara: 'udhaata', romanization: 'ka' },
+              { text: 'दं', swara: 'anudhaata', romanization: 'daṃ' },
+              { text: 'ता', swara: 'udhaata', romanization: 'tā' },
+              { text: 'य', swara: 'swarita', romanization: 'ya' },
+              { text: 'वि', swara: 'anudhaata', romanization: 'vi' },
+              { text: 'द्म', swara: 'udhaata', romanization: 'dma' },
+              { text: 'हे', swara: 'swarita', romanization: 'he' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 2,
+            audioStartTime: 10,
+            audioEndTime: 15,
+            sanskrit: [
+              { text: 'व', swara: 'udhaata', romanization: 'Va' },
+              { text: 'क्र', swara: 'udhaata', romanization: 'kra' },
+              { text: 'तुं', swara: 'anudhaata', romanization: 'tuṃ' },
+              { text: 'डा', swara: 'udhaata', romanization: 'ḍā' },
+              { text: 'य', swara: 'swarita', romanization: 'ya' },
+              { text: 'धी', swara: 'udhaata', romanization: 'dhī' },
+              { text: 'म', swara: 'udhaata', romanization: 'ma' },
+              { text: 'हि', swara: 'udhaata', romanization: 'hi' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 3,
+            audioStartTime: 15,
+            audioEndTime: 999,
+            sanskrit: [
+              { text: 'त', swara: 'udhaata', romanization: 'Taṃ' },
+              { text: 'न्नो', swara: 'swarita', romanization: 'no' },
+              { text: 'द', swara: 'udhaata', romanization: 'daṃ' },
+              { text: 'न्तिः', swara: 'udhaata', romanization: 'tiḥ' },
+              { text: 'प्र', swara: 'udhaata', romanization: 'pra' },
+              { text: 'चो', swara: 'anudhaata', romanization: 'cho' },
+              { text: 'द', swara: 'udhaata', romanization: 'da' },
+              { text: 'यात्', swara: 'dheerga', romanization: 'yāt' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
     ],
     audioUrl: '/audio/Ganesha_Gayatri_Mantra.mp3',
@@ -91,167 +101,206 @@ const mantraData: Record<string, MantraData> = {
     paragraphs: [
       {
         id: 1,
-        sanskrit: [
-          { text: 'ॐ', swara: 'udhaata', romanization: 'Om' },
-          { text: 'न', swara: 'swarita', romanization: 'na' },
-          { text: 'मस्', swara: 'swarita', romanization: 'mas' },
-          { text: 'ते', swara: 'anudhaata', romanization: 'tē' },
-          { text: 'ग', swara: 'anudhaata', romanization: 'ga' },
-          { text: 'ण', swara: 'udhaata', romanization: 'ṇa' },
-          { text: 'प', swara: 'swarita', romanization: 'pa' },
-          { text: 'त', swara: 'udhaata', romanization: 'ta' },
-          { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            sanskrit: [
+              { text: 'ॐ', swara: 'udhaata', romanization: 'Om' },
+              { text: 'न', swara: 'swarita', romanization: 'na' },
+              { text: 'मस्', swara: 'swarita', romanization: 'mas' },
+              { text: 'ते', swara: 'anudhaata', romanization: 'tē' },
+              { text: 'ग', swara: 'anudhaata', romanization: 'ga' },
+              { text: 'ण', swara: 'udhaata', romanization: 'ṇa' },
+              { text: 'प', swara: 'swarita', romanization: 'pa' },
+              { text: 'त', swara: 'udhaata', romanization: 'ta' },
+              { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 2,
+            sanskrit: [
+              { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
+              { text: 'मे', swara: 'udhaata', romanization: 'mē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'प्', swara: 'udhaata', romanization: 'p' },
+              { text: 'प्रत्', swara: 'udhaata', romanization: 'prat' },
+              { text: 'य', swara: 'udhaata', romanization: 'ya' },
+              { text: 'क्', swara: 'udhaata', romanization: 'k' },
+              { text: 'श', swara: 'anudhaata', romanization: 'śha' },
+              { text: 'न्', swara: 'udhaata', romanization: 'n' },
+              { text: 'तत्', swara: 'swarita', romanization: 'tat' },
+              { text: 'त्व', swara: 'swarita', romanization: 'tva' },
+              { text: 'म', swara: 'udhaata', romanization: 'ma' },
+              { text: 'सि', swara: 'udhaata', romanization: 'si' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 3,
+            sanskrit: [
+              { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
+              { text: 'मे', swara: 'udhaata', romanization: 'mē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'के', swara: 'anudhaata', romanization: 'kē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'लं', swara: 'udhaata', romanization: 'laṃ' },
+              { text: 'कर्', swara: 'udhaata', romanization: 'kar' },
+              { text: 'ता', swara: 'dheerga', romanization: 'tā' },
+              { text: 'सि', swara: 'anudhaata', romanization: 'si' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 4,
+            sanskrit: [
+              { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
+              { text: 'मे', swara: 'udhaata', romanization: 'mē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'के', swara: 'anudhaata', romanization: 'kē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'लं', swara: 'udhaata', romanization: 'laṃ' },
+              { text: 'हर्', swara: 'udhaata', romanization: 'har' },
+              { text: 'ता', swara: 'dheerga', romanization: 'tā' },
+              { text: 'सि', swara: 'anudhaata', romanization: 'si' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
       {
         id: 2,
-        sanskrit: [
-          { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
-          { text: 'मे', swara: 'udhaata', romanization: 'mē' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'प्', swara: 'udhaata', romanization: 'p' },
-          { text: 'प्रत्', swara: 'udhaata', romanization: 'prat' },
-          { text: 'य', swara: 'udhaata', romanization: 'ya' },
-          { text: 'क्', swara: 'udhaata', romanization: 'k' },
-          { text: 'श', swara: 'anudhaata', romanization: 'śha' },
-          { text: 'न्', swara: 'udhaata', romanization: 'n' },
-          { text: 'तत्', swara: 'swarita', romanization: 'tat' },
-          { text: 'त्व', swara: 'swarita', romanization: 'tva' },
-          { text: 'म', swara: 'udhaata', romanization: 'ma' },
-          { text: 'सि', swara: 'udhaata', romanization: 'si' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            sanskrit: [
+              { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
+              { text: 'मे', swara: 'udhaata', romanization: 'mē' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'सर्', swara: 'udhaata', romanization: 'sar' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'ख', swara: 'udhaata', romanization: 'kha' },
+              { text: 'ल्', swara: 'udhaata', romanization: 'l' },
+              { text: 'वि', swara: 'anudhaata', romanization: 'vi' },
+              { text: 'दं', swara: 'swarita', romanization: 'daṃ' },
+              { text: 'ब्रम्', swara: 'udhaata', romanization: 'bram' },
+              { text: 'हा', swara: 'anudhaata', romanization: 'hā' },
+              { text: 'सि', swara: 'udhaata', romanization: 'si' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 2,
+            sanskrit: [
+              { text: 'त्वं', swara: 'anudhaata', romanization: 'tvaṃ' },
+              { text: 'सा', swara: 'udhaata', romanization: 'sā' },
+              { text: 'क्', swara: 'udhaata', romanization: 'k' },
+              { text: 'षा', swara: 'swarita', romanization: 'ṣhā' },
+              { text: 'दा', swara: 'anudhaata', romanization: 'dā' },
+              { text: 'त्', swara: 'swarita', romanization: 't' },
+              { text: 'मा', swara: 'dheerga', romanization: 'mā' },
+              { text: 'सि', swara: 'udhaata', romanization: 'si' },
+              { text: 'नि', swara: 'anudhaata', romanization: 'ni' },
+              { text: 'त्', swara: 'udhaata', romanization: 't' },
+              { text: 'यम्', swara: 'udhaata', romanization: 'yam' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
       {
         id: 3,
-        sanskrit: [
-          { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
-          { text: 'मे', swara: 'udhaata', romanization: 'mē' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'के', swara: 'anudhaata', romanization: 'kē' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'लं', swara: 'udhaata', romanization: 'laṃ' },
-          { text: 'कर्', swara: 'udhaata', romanization: 'kar' },
-          { text: 'ता', swara: 'dheerga', romanization: 'tā' },
-          { text: 'सि', swara: 'anudhaata', romanization: 'si' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            sanskrit: [
+              { text: 'ऋ', swara: 'udhaata', romanization: 'Ṛ' },
+              { text: 'तं', swara: 'udhaata', romanization: 'taṃ' },
+              { text: 'व', swara: 'anudhaata', romanization: 'va' },
+              { text: 'च्', swara: 'udhaata', romanization: 'ch' },
+              { text: 'मि', swara: 'udhaata', romanization: 'mi' },
+              { text: 'सत्', swara: 'swarita', romanization: 'sat' },
+              { text: 'यं', swara: 'udhaata', romanization: 'yaṃ' },
+              { text: 'व', swara: 'anudhaata', romanization: 'va' },
+              { text: 'च्', swara: 'udhaata', romanization: 'ch' },
+              { text: 'मि', swara: 'udhaata', romanization: 'mi' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
       {
         id: 4,
-        sanskrit: [
-          { text: 'त्व', swara: 'anudhaata', romanization: 'tva' },
-          { text: 'मे', swara: 'udhaata', romanization: 'mē' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'सर्', swara: 'udhaata', romanization: 'sar' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'ख', swara: 'udhaata', romanization: 'kha' },
-          { text: 'ल्', swara: 'udhaata', romanization: 'l' },
-          { text: 'वि', swara: 'anudhaata', romanization: 'vi' },
-          { text: 'दं', swara: 'swarita', romanization: 'daṃ' },
-          { text: 'ब्रम्', swara: 'udhaata', romanization: 'bram' },
-          { text: 'हा', swara: 'anudhaata', romanization: 'hā' },
-          { text: 'सि', swara: 'udhaata', romanization: 'si' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            sanskrit: [
+              { text: 'अ', swara: 'udhaata', romanization: 'a' },
+              { text: 'व', swara: 'swarita', romanization: 'va' },
+              { text: 'त', swara: 'udhaata', romanization: 'ta' },
+              { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
+              { text: 'माम्', swara: 'udhaata', romanization: 'mām' },
+              { text: 'अ', swara: 'udhaata', romanization: 'a' },
+              { text: 'व', swara: 'swarita', romanization: 'va' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'क्', swara: 'udhaata', romanization: 'k' },
+              { text: 'ता', swara: 'dheerga', romanization: 'tā' },
+              { text: 'रं', swara: 'udhaata', romanization: 'raṃ' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 2,
+            sanskrit: [
+              { text: 'सर्', swara: 'udhaata', romanization: 'sar' },
+              { text: 'व', swara: 'udhaata', romanization: 'va' },
+              { text: 'तो', swara: 'udhaata', romanization: 'tō' },
+              { text: 'मां', swara: 'udhaata', romanization: 'māṃ' },
+              { text: 'पा', swara: 'udhaata', romanization: 'pā' },
+              { text: 'हि', swara: 'udhaata', romanization: 'hi' },
+              { text: 'पा', swara: 'swarita', romanization: 'pā' },
+              { text: 'हि', swara: 'anudhaata', romanization: 'hi' },
+              { text: 'स', swara: 'udhaata', romanization: 'sa' },
+              { text: 'म', swara: 'anudhaata', romanization: 'ma' },
+              { text: 'न्', swara: 'udhaata', romanization: 'n' },
+              { text: 'ता', swara: 'anudhaata', romanization: 'tā' },
+              { text: 'ते', swara: 'udhaata', romanization: 'tē' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
       {
         id: 5,
-        sanskrit: [
-          { text: 'त्वं', swara: 'anudhaata', romanization: 'tvaṃ' },
-          { text: 'सा', swara: 'udhaata', romanization: 'sā' },
-          { text: 'क्', swara: 'udhaata', romanization: 'k' },
-          { text: 'षा', swara: 'swarita', romanization: 'ṣhā' },
-          { text: 'दा', swara: 'anudhaata', romanization: 'dā' },
-          { text: 'त्', swara: 'swarita', romanization: 't' },
-          { text: 'मा', swara: 'dheerga', romanization: 'mā' },
-          { text: 'सि', swara: 'udhaata', romanization: 'si' },
-          { text: 'नि', swara: 'anudhaata', romanization: 'ni' },
-          { text: 'त्', swara: 'udhaata', romanization: 't' },
-          { text: 'यम्', swara: 'udhaata', romanization: 'yam' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 6,
-        sanskrit: [
-          { text: 'ऋ', swara: 'udhaata', romanization: 'Ṛ' },
-          { text: 'तं', swara: 'udhaata', romanization: 'taṃ' },
-          { text: 'व', swara: 'anudhaata', romanization: 'va' },
-          { text: 'च्', swara: 'udhaata', romanization: 'ch' },
-          { text: 'मि', swara: 'udhaata', romanization: 'mi' },
-          { text: 'सत्', swara: 'swarita', romanization: 'sat' },
-          { text: 'यं', swara: 'udhaata', romanization: 'yaṃ' },
-          { text: 'व', swara: 'anudhaata', romanization: 'va' },
-          { text: 'च्', swara: 'udhaata', romanization: 'ch' },
-          { text: 'मि', swara: 'udhaata', romanization: 'mi' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 7,
-        sanskrit: [
-          { text: 'अ', swara: 'udhaata', romanization: 'a' },
-          { text: 'व', swara: 'swarita', romanization: 'va' },
-          { text: 'त', swara: 'udhaata', romanization: 'ta' },
-          { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
-          { text: 'माम्', swara: 'udhaata', romanization: 'mām' },
-          { text: 'अ', swara: 'udhaata', romanization: 'a' },
-          { text: 'व', swara: 'swarita', romanization: 'va' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'क्', swara: 'udhaata', romanization: 'k' },
-          { text: 'ता', swara: 'dheerga', romanization: 'tā' },
-          { text: 'रं', swara: 'udhaata', romanization: 'raṃ' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 8,
-        sanskrit: [
-          { text: 'सर्', swara: 'udhaata', romanization: 'sar' },
-          { text: 'व', swara: 'udhaata', romanization: 'va' },
-          { text: 'तो', swara: 'udhaata', romanization: 'tō' },
-          { text: 'मां', swara: 'udhaata', romanization: 'māṃ' },
-          { text: 'पा', swara: 'udhaata', romanization: 'pā' },
-          { text: 'हि', swara: 'udhaata', romanization: 'hi' },
-          { text: 'पा', swara: 'swarita', romanization: 'pā' },
-          { text: 'हि', swara: 'anudhaata', romanization: 'hi' },
-          { text: 'स', swara: 'udhaata', romanization: 'sa' },
-          { text: 'म', swara: 'anudhaata', romanization: 'ma' },
-          { text: 'न्', swara: 'udhaata', romanization: 'n' },
-          { text: 'ता', swara: 'anudhaata', romanization: 'tā' },
-          { text: 'ते', swara: 'udhaata', romanization: 'tē' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 9,
-        sanskrit: [
-          { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
-          { text: 'वाङ्', swara: 'udhaata', romanization: 'vāṅ' },
-          { text: 'म', swara: 'swarita', romanization: 'ma' },
-          { text: 'यस्', swara: 'swarita', romanization: 'yas' },
-          { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
-          { text: 'चिन्', swara: 'udhaata', romanization: 'chin' },
-          { text: 'म', swara: 'anudhaata', romanization: 'ma' },
-          { text: 'य', swara: 'udhaata', romanization: 'ya' },
-          { text: 'ह', swara: 'udhaata', romanization: 'ha' },
-        ] as SyllableWithSwara[],
-      },
-      {
-        id: 10,
-        sanskrit: [
-          { text: 'न', swara: 'udhaata', romanization: 'na' },
-          { text: 'मो', swara: 'swarita', romanization: 'mō' },
-          { text: 'व्', swara: 'udhaata', romanization: 'v' },
-          { text: 'रा', swara: 'udhaata', romanization: 'rā' },
-          { text: 'त', swara: 'udhaata', romanization: 'ta' },
-          { text: 'प', swara: 'udhaata', romanization: 'pa' },
-          { text: 'त', swara: 'anudhaata', romanization: 'ta' },
-          { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
-          { text: 'न', swara: 'udhaata', romanization: 'na' },
-          { text: 'मो', swara: 'udhaata', romanization: 'mō' },
-          { text: 'ग', swara: 'udhaata', romanization: 'ga' },
-          { text: 'ण', swara: 'udhaata', romanization: 'ṇa' },
-          { text: 'प', swara: 'swarita', romanization: 'pa' },
-          { text: 'त', swara: 'udhaata', romanization: 'ta' },
-          { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
-          { text: 'न', swara: 'udhaata', romanization: 'na' },
-          { text: 'मः', swara: 'udhaata', romanization: 'maḥ' },
-        ] as SyllableWithSwara[],
+        lines: [
+          {
+            id: 1,
+            sanskrit: [
+              { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
+              { text: 'वाङ्', swara: 'udhaata', romanization: 'vāṅ' },
+              { text: 'म', swara: 'swarita', romanization: 'ma' },
+              { text: 'यस्', swara: 'swarita', romanization: 'yas' },
+              { text: 'त्वं', swara: 'udhaata', romanization: 'tvaṃ' },
+              { text: 'चिन्', swara: 'udhaata', romanization: 'chin' },
+              { text: 'म', swara: 'anudhaata', romanization: 'ma' },
+              { text: 'य', swara: 'udhaata', romanization: 'ya' },
+              { text: 'ह', swara: 'udhaata', romanization: 'ha' },
+            ] as SyllableWithSwara[],
+          },
+          {
+            id: 2,
+            sanskrit: [
+              { text: 'न', swara: 'udhaata', romanization: 'na' },
+              { text: 'मो', swara: 'swarita', romanization: 'mō' },
+              { text: 'व्', swara: 'udhaata', romanization: 'v' },
+              { text: 'रा', swara: 'udhaata', romanization: 'rā' },
+              { text: 'त', swara: 'udhaata', romanization: 'ta' },
+              { text: 'प', swara: 'udhaata', romanization: 'pa' },
+              { text: 'त', swara: 'anudhaata', romanization: 'ta' },
+              { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
+              { text: 'न', swara: 'udhaata', romanization: 'na' },
+              { text: 'मो', swara: 'udhaata', romanization: 'mō' },
+              { text: 'ग', swara: 'udhaata', romanization: 'ga' },
+              { text: 'ण', swara: 'udhaata', romanization: 'ṇa' },
+              { text: 'प', swara: 'swarita', romanization: 'pa' },
+              { text: 'त', swara: 'udhaata', romanization: 'ta' },
+              { text: 'ये', swara: 'anudhaata', romanization: 'yē' },
+              { text: 'न', swara: 'udhaata', romanization: 'na' },
+              { text: 'मः', swara: 'udhaata', romanization: 'maḥ' },
+            ] as SyllableWithSwara[],
+          },
+        ],
       },
     ],
     audioUrl: '', // Audio file to be added later
@@ -263,9 +312,10 @@ export default function PracticePage() {
   const mantraId = params.mantraId as string;
   const mantra = mantraData[mantraId] || mantraData.gayatri;
 
+  const [practiceMode, setPracticeMode] = useState<'line' | 'paragraph' | 'full'>('line');
   const [selectedParagraph, setSelectedParagraph] = useState(1);
+  const [selectedLine, setSelectedLine] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playAllVerses, setPlayAllVerses] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [accuracyScore, setAccuracyScore] = useState<number | null>(null);
   const [syllableMatches, setSyllableMatches] = useState<SwaraSyllableMatch[]>([]);
@@ -288,6 +338,26 @@ export default function PracticePage() {
   const recordingStartTimeRef = useRef<number>(0);
 
   const currentParagraph = mantra.paragraphs.find((p) => p.id === selectedParagraph);
+  const currentLine = currentParagraph?.lines.find((l) => l.id === selectedLine);
+
+  // Get the content to display based on practice mode
+  const getDisplayContent = () => {
+    if (practiceMode === 'line' && currentLine) {
+      return [currentLine];
+    } else if (practiceMode === 'paragraph' && currentParagraph) {
+      return currentParagraph.lines;
+    } else if (practiceMode === 'full') {
+      return mantra.paragraphs.flatMap(p => p.lines);
+    }
+    return [];
+  };
+
+  const displayLines = getDisplayContent();
+
+  // Get all syllables for the current practice mode
+  const getCurrentSyllables = () => {
+    return displayLines.flatMap(line => line.sanskrit);
+  };
 
   const getSwaraColor = (swara: SwaraType) => {
     switch (swara) {
@@ -355,7 +425,7 @@ export default function PracticePage() {
     }
   }, [mantra.audioUrl]);
 
-  // Clear feedback when verse changes
+  // Clear feedback when selection or practice mode changes
   useEffect(() => {
     setAccuracyScore(null);
     setSyllableMatches([]);
@@ -364,7 +434,7 @@ export default function PracticePage() {
     setSwaraAccuracy(null);
     setIsPronunciationReady(false);
     setIsSwaraReady(false);
-  }, [selectedParagraph]);
+  }, [selectedParagraph, selectedLine, practiceMode]);
 
   // ML model removed - now using Whisper AI for pronunciation detection
 
@@ -375,11 +445,13 @@ export default function PracticePage() {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      // If playing a specific verse (not all verses), set the time range
-      if (!playAllVerses && currentParagraph?.audioStartTime !== undefined) {
-        audioRef.current.currentTime = currentParagraph.audioStartTime;
+      // Set start time based on practice mode
+      if (practiceMode === 'line' && currentLine?.audioStartTime !== undefined) {
+        audioRef.current.currentTime = currentLine.audioStartTime;
+      } else if (practiceMode === 'paragraph' && currentParagraph?.lines[0]?.audioStartTime !== undefined) {
+        audioRef.current.currentTime = currentParagraph.lines[0].audioStartTime;
       } else {
-        // Play from beginning for "Play All"
+        // Play from beginning for full chant
         audioRef.current.currentTime = 0;
       }
       audioRef.current.play();
@@ -387,18 +459,25 @@ export default function PracticePage() {
     }
   };
 
-  // Handle audio time update to stop at verse end
+  // Handle audio time update to stop at line/paragraph end
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const handleTimeUpdate = () => {
-      if (!playAllVerses && currentParagraph?.audioEndTime !== undefined) {
-        if (audio.currentTime >= currentParagraph.audioEndTime) {
+      if (practiceMode === 'line' && currentLine?.audioEndTime !== undefined) {
+        if (audio.currentTime >= currentLine.audioEndTime) {
+          audio.pause();
+          setIsPlaying(false);
+        }
+      } else if (practiceMode === 'paragraph' && currentParagraph) {
+        const lastLine = currentParagraph.lines[currentParagraph.lines.length - 1];
+        if (lastLine?.audioEndTime !== undefined && audio.currentTime >= lastLine.audioEndTime) {
           audio.pause();
           setIsPlaying(false);
         }
       }
+      // For full chant mode, let it play until the end naturally
     };
 
     const handleEnded = () => {
@@ -412,7 +491,7 @@ export default function PracticePage() {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentParagraph, playAllVerses]);
+  }, [currentParagraph, currentLine, practiceMode]);
 
   const startRecording = async () => {
     try {
@@ -468,12 +547,13 @@ export default function PracticePage() {
             }
 
             // Run the full analysis (pronunciation + swara)
+            const currentSyllables = getCurrentSyllables();
             const result = await analyzeMantraChanting(
               audioBuffer,
-              currentParagraph.sanskrit,
+              currentSyllables,
               referenceAudioBuffer,
-              currentParagraph.audioStartTime,
-              currentParagraph.audioEndTime,
+              displayLines[0]?.audioStartTime,
+              displayLines[displayLines.length - 1]?.audioEndTime,
               audioBlob  // Pass the blob for speech recognition
             );
 
@@ -656,91 +736,176 @@ export default function PracticePage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Practice Area */}
           <div className="lg:col-span-2">
-            {/* Paragraph Selector */}
+            {/* Practice Mode Selector */}
             <div className="mb-6 p-4 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <p className="text-sm text-purple-300 mb-3">Select Paragraph</p>
-              <div className="flex flex-wrap gap-2">
-                {mantra.paragraphs.map((para) => (
-                  <motion.button
-                    key={para.id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedParagraph(para.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                      selectedParagraph === para.id
-                        ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
-                        : 'bg-white/5 text-purple-300 hover:bg-white/10'
-                    }`}
-                  >
-                    Verse {para.id}
-                  </motion.button>
-                ))}
+              <p className="text-sm text-purple-300 mb-3">Practice Mode</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setPracticeMode('line')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    practiceMode === 'line'
+                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                      : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                  }`}
+                >
+                  Line by Line
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setPracticeMode('paragraph')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    practiceMode === 'paragraph'
+                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                      : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                  }`}
+                >
+                  Paragraph
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setPracticeMode('full')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    practiceMode === 'full'
+                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                      : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                  }`}
+                >
+                  Full Chant
+                </motion.button>
               </div>
+
+              {/* Paragraph Selector - only show when not in full mode */}
+              {practiceMode !== 'full' && (
+                <>
+                  <p className="text-sm text-purple-300 mb-3">Select Paragraph</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {mantra.paragraphs.map((para) => (
+                      <motion.button
+                        key={para.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setSelectedParagraph(para.id);
+                          setSelectedLine(1); // Reset line when changing paragraph
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                          selectedParagraph === para.id
+                            ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                            : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                        }`}
+                      >
+                        Para {para.id}
+                      </motion.button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Line Selector - only show in line mode */}
+              {practiceMode === 'line' && currentParagraph && (
+                <>
+                  <p className="text-sm text-purple-300 mb-3">Select Line</p>
+                  <div className="flex flex-wrap gap-2">
+                    {currentParagraph.lines.map((line) => (
+                      <motion.button
+                        key={line.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedLine(line.id)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                          selectedLine === line.id
+                            ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white'
+                            : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                        }`}
+                      >
+                        Line {line.id}
+                      </motion.button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Swara Notation Display */}
             <motion.div
-              key={selectedParagraph}
+              key={`${practiceMode}-${selectedParagraph}-${selectedLine}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="p-8 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10 mb-6"
             >
               <h3 className="text-xl font-semibold mb-6 text-purple-300">
-                Verse {selectedParagraph}
+                {practiceMode === 'full' ? 'Full Chant' :
+                 practiceMode === 'paragraph' ? `Paragraph ${selectedParagraph}` :
+                 `Para ${selectedParagraph} - Line ${selectedLine}`}
               </h3>
 
-              {/* Sanskrit with Swara indicators */}
-              <div className="flex flex-wrap gap-x-4 gap-y-16 md:gap-x-3 md:gap-y-16 mb-8">
-                {currentParagraph?.sanskrit.map((syllable: SyllableWithSwara, index: number) => {
-                  const match = syllableMatches.find(m => m.syllableIndex === index);
-                  const comprehensiveResult = comprehensiveResults.find(r => r.syllableIndex === index);
-                  const isRecordingActive = isRecording && currentSyllableIndex === index;
-                  const hasFeedback = match !== undefined;
-                  const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
+              {/* Display all lines in current practice mode */}
+              {displayLines.map((line, lineIdx) => (
+                <div key={`line-${lineIdx}`} className="mb-8 last:mb-0">
+                  {/* Show line number if displaying multiple lines */}
+                  {displayLines.length > 1 && (
+                    <p className="text-sm text-purple-400 mb-3">Line {line.id}</p>
+                  )}
 
-                  return (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="relative"
-                    >
-                      {/* Swara symbol above with feedback - just colored arrow, no box */}
-                      <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all ${
-                        hasSwaraFeedback
-                          ? `${getSwaraFeedbackColor(comprehensiveResult.accuracy).split(' ')[0]} text-3xl font-bold drop-shadow-lg`
-                          : 'text-gray-400 text-2xl'
-                      }`}>
-                        {getSwaraSymbol(syllable.swara)}
-                      </div>
+                  {/* Sanskrit with Swara indicators */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-16 md:gap-x-3 md:gap-y-16">
+                    {line.sanskrit.map((syllable: SyllableWithSwara, index: number) => {
+                      // Calculate global syllable index across all displayed lines
+                      const globalIndex = displayLines.slice(0, lineIdx).reduce((sum, l) => sum + l.sanskrit.length, 0) + index;
+                      const match = syllableMatches.find(m => m.syllableIndex === globalIndex);
+                      const comprehensiveResult = comprehensiveResults.find(r => r.syllableIndex === globalIndex);
+                      const isRecordingActive = isRecording && currentSyllableIndex === globalIndex;
+                      const hasFeedback = match !== undefined;
+                      const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
 
-                      {/* Syllable with feedback */}
-                      <motion.div
-                        animate={isRecordingActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-                        transition={isRecordingActive ? { repeat: Infinity, duration: 0.8 } : {}}
-                        className={`px-4 py-3 rounded-xl border-2 font-bold text-2xl transition-all ${
-                          hasFeedback
-                            ? getFeedbackColor(match.accuracy)
-                            : isRecordingActive
-                            ? 'border-cyan-500 bg-cyan-500/30 ring-2 ring-cyan-400'
-                            : getSwaraColor(syllable.swara)
-                        }`}
-                      >
-                        {syllable.text}
-                      </motion.div>
+                      return (
+                        <motion.div
+                          key={globalIndex}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="relative"
+                        >
+                          {/* Swara symbol above with feedback - just colored arrow, no box */}
+                          <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all ${
+                            hasSwaraFeedback
+                              ? `${getSwaraFeedbackColor(comprehensiveResult.accuracy).split(' ')[0]} text-3xl font-bold drop-shadow-lg`
+                              : 'text-gray-400 text-2xl'
+                          }`}>
+                            {getSwaraSymbol(syllable.swara)}
+                          </div>
 
-                      {/* Romanization below */}
-                      {syllable.romanization && (
-                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-purple-300 whitespace-nowrap">
-                          {syllable.romanization}
-                        </div>
-                      )}
+                          {/* Syllable with feedback */}
+                          <motion.div
+                            animate={isRecordingActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                            transition={isRecordingActive ? { repeat: Infinity, duration: 0.8 } : {}}
+                            className={`px-4 py-3 rounded-xl border-2 font-bold text-2xl transition-all ${
+                              hasFeedback
+                                ? getFeedbackColor(match.accuracy)
+                                : isRecordingActive
+                                ? 'border-cyan-500 bg-cyan-500/30 ring-2 ring-cyan-400'
+                                : getSwaraColor(syllable.swara)
+                            }`}
+                          >
+                            {syllable.text}
+                          </motion.div>
 
-                    </motion.div>
-                  );
-                })}
-              </div>
+                          {/* Romanization below */}
+                          {syllable.romanization && (
+                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-purple-300 whitespace-nowrap">
+                              {syllable.romanization}
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
 
               {/* Audio Controls */}
               <div className="space-y-4 pt-8 border-t border-white/10">
@@ -752,26 +917,14 @@ export default function PracticePage() {
                     className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 font-medium transition-all"
                   >
                     {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                    {isPlaying ? 'Pause' : 'Play'} {playAllVerses ? 'All Verses' : `Verse ${selectedParagraph}`}
+                    {isPlaying ? 'Pause' : 'Play'}{' '}
+                    {practiceMode === 'line'
+                      ? `Line ${selectedLine}`
+                      : practiceMode === 'paragraph'
+                      ? `Paragraph ${selectedParagraph}`
+                      : 'Full Chant'}
                   </motion.button>
                   <Volume2 className="w-5 h-5 text-purple-400" />
-                </div>
-
-                {/* Toggle for Play All Verses */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setPlayAllVerses(!playAllVerses)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      playAllVerses ? 'bg-gradient-to-r from-purple-600 to-cyan-600' : 'bg-white/20'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        playAllVerses ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-purple-300">Play All Verses</span>
                 </div>
               </div>
             </motion.div>
