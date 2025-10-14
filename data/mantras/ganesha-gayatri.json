@@ -1,0 +1,62 @@
+{
+  "id": "ganesha-gayatri",
+  "title": "Ganesha Gayatri Mantra",
+  "category": "Ganapati Upanishad",
+  "audioUrl": "/audio/Ganesha_Gayatri_Mantra.mp3",
+  "paragraphs": [
+    {
+      "id": 1,
+      "lines": [
+        {
+          "id": 1,
+          "audioStartTime": 0,
+          "audioEndTime": 9,
+          "wordBoundaries": [0, 1, 6],
+          "sanskrit": [
+            { "text": "ओम्", "swara": "udhaata", "romanization": "Om" },
+            { "text": "ए", "swara": "udhaata", "romanization": "E" },
+            { "text": "क", "swara": "udhaata", "romanization": "ka" },
+            { "text": "दं", "swara": "anudhaata", "romanization": "daṃ" },
+            { "text": "ता", "swara": "udhaata", "romanization": "tā" },
+            { "text": "य", "swara": "swarita", "romanization": "ya" },
+            { "text": "वि", "swara": "anudhaata", "romanization": "vi" },
+            { "text": "द्म", "swara": "udhaata", "romanization": "dma" },
+            { "text": "हे", "swara": "swarita", "romanization": "he" }
+          ]
+        },
+        {
+          "id": 2,
+          "audioStartTime": 10,
+          "audioEndTime": 15,
+          "wordBoundaries": [0, 3, 5],
+          "sanskrit": [
+            { "text": "व", "swara": "udhaata", "romanization": "Va" },
+            { "text": "क्र", "swara": "udhaata", "romanization": "kra" },
+            { "text": "तुं", "swara": "anudhaata", "romanization": "tuṃ" },
+            { "text": "डा", "swara": "udhaata", "romanization": "ḍā" },
+            { "text": "य", "swara": "swarita", "romanization": "ya" },
+            { "text": "धी", "swara": "udhaata", "romanization": "dhī" },
+            { "text": "म", "swara": "udhaata", "romanization": "ma" },
+            { "text": "हि", "swara": "udhaata", "romanization": "hi" }
+          ]
+        },
+        {
+          "id": 3,
+          "audioStartTime": 15,
+          "audioEndTime": 999,
+          "wordBoundaries": [0, 2, 4],
+          "sanskrit": [
+            { "text": "त", "swara": "udhaata", "romanization": "Taṃ" },
+            { "text": "न्नो", "swara": "swarita", "romanization": "no" },
+            { "text": "द", "swara": "udhaata", "romanization": "daṃ" },
+            { "text": "न्तिः", "swara": "udhaata", "romanization": "tiḥ" },
+            { "text": "प्र", "swara": "udhaata", "romanization": "pra" },
+            { "text": "चो", "swara": "anudhaata", "romanization": "cho" },
+            { "text": "द", "swara": "udhaata", "romanization": "da" },
+            { "text": "यात्", "swara": "dheerga", "romanization": "yāt" }
+          ]
+        }
+      ]
+    }
+  ]
+}
