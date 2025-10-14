@@ -45,6 +45,7 @@ export default function PracticePage() {
   const [referencePitchData, setReferencePitchData] = useState<PitchData[]>([]);
   const [analysisMode, setAnalysisMode] = useState<'phonetic' | 'pitch'>('phonetic');
   const [advancedMode, setAdvancedMode] = useState(false); // Toggle for word-by-word display
+  const [audioProgress, setAudioProgress] = useState(0); // Current audio time in seconds
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -164,6 +165,43 @@ export default function PracticePage() {
     }
   };
 
+  // Get duration weight based on swara type
+  const getSwaraDurationWeight = (swara: SwaraType) => {
+    switch (swara) {
+      case 'dheerga':
+        return 1.5;  // Prolonged - takes 50% more time
+      case 'swarita':
+        return 1.1;  // Rising pitch - slightly longer
+      case 'anudhaata':
+        return 0.9;  // Low pitch - slightly shorter
+      case 'udhaata':
+        return 1.0;  // Base - normal duration
+    }
+  };
+
+  // Calculate weighted syllable timings for a line
+  const calculateSyllableTimings = (line: typeof displayLines[0]) => {
+    if (!line.audioStartTime || !line.audioEndTime) return [];
+
+    const lineDuration = line.audioEndTime - line.audioStartTime;
+    const weights = line.sanskrit.map(s => getSwaraDurationWeight(s.swara));
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+    const timings: Array<{ start: number; end: number }> = [];
+    let currentTime = line.audioStartTime;
+
+    line.sanskrit.forEach((syllable, idx) => {
+      const syllableDuration = (weights[idx] / totalWeight) * lineDuration;
+      timings.push({
+        start: currentTime,
+        end: currentTime + syllableDuration
+      });
+      currentTime += syllableDuration;
+    });
+
+    return timings;
+  };
+
   const getFeedbackColor = (accuracy: 'perfect' | 'good' | 'fair' | 'poor') => {
     switch (accuracy) {
       case 'perfect':
@@ -244,6 +282,9 @@ export default function PracticePage() {
     if (!audio) return;
 
     const handleTimeUpdate = () => {
+      // Update audio progress for visual indicator
+      setAudioProgress(audio.currentTime);
+
       if (practiceMode === 'line' && currentLine?.audioEndTime !== undefined) {
         if (audio.currentTime >= currentLine.audioEndTime) {
           audio.pause();
@@ -315,12 +356,14 @@ export default function PracticePage() {
             // Load reference audio for comparison
             let referenceAudioBuffer: AudioBuffer | undefined;
             try {
-              const response = await fetch(mantra.audioUrl);
-              const arrayBuffer = await response.arrayBuffer();
-              const audioContext = new AudioContext();
-              referenceAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-              audioContext.close();
-              console.log('Reference audio loaded for comparison');
+              if (mantra?.audioUrl) {
+                const response = await fetch(mantra.audioUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioContext = new AudioContext();
+                referenceAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                audioContext.close();
+                console.log('Reference audio loaded for comparison');
+              }
             } catch (error) {
               console.warn('Could not load reference audio:', error);
             }
@@ -705,6 +748,26 @@ export default function PracticePage() {
                         const hasFeedback = match !== undefined;
                         const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
 
+                        // Calculate if this syllable is currently being played using weighted timing
+                        const isSyllablePlaying = isPlaying &&
+                          line.audioStartTime !== undefined &&
+                          line.audioEndTime !== undefined &&
+                          audioProgress >= line.audioStartTime &&
+                          audioProgress < line.audioEndTime;
+
+                        // Calculate syllable timing using swara-based weights
+                        let isThisSyllableActive = false;
+                        if (isSyllablePlaying) {
+                          const syllableTimings = calculateSyllableTimings(line);
+                          if (syllableTimings.length > index) {
+                            const timing = syllableTimings[index];
+                            isThisSyllableActive = audioProgress >= timing.start && audioProgress < timing.end;
+                            if (isThisSyllableActive) {
+                              console.log(`Active syllable ${index}: ${syllable.text}, time: ${audioProgress.toFixed(2)}s, range: ${timing.start.toFixed(2)}-${timing.end.toFixed(2)}`);
+                            }
+                          }
+                        }
+
                         return (
                           <motion.div
                             key={globalIndex}
@@ -726,7 +789,7 @@ export default function PracticePage() {
                             <motion.div
                               animate={isRecordingActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
                               transition={isRecordingActive ? { repeat: Infinity, duration: 0.8 } : {}}
-                              className={`px-4 py-3 rounded-xl border-2 font-bold text-2xl transition-all ${
+                              className={`relative px-4 py-3 rounded-xl border-2 font-bold text-2xl transition-all ${
                                 hasFeedback
                                   ? getFeedbackColor(match.accuracy)
                                   : isRecordingActive
@@ -734,7 +797,16 @@ export default function PracticePage() {
                                   : getSwaraColor(syllable.swara)
                               }`}
                             >
-                              {syllable.text}
+                              {/* Audio progress overlay */}
+                              {isThisSyllableActive && (
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: [0.3, 0.5, 0.3] }}
+                                  transition={{ duration: 1, repeat: Infinity }}
+                                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/40 to-purple-400/40 pointer-events-none z-10"
+                                />
+                              )}
+                              <span className="relative z-20">{syllable.text}</span>
                             </motion.div>
 
                             {/* Romanization below */}
@@ -755,13 +827,6 @@ export default function PracticePage() {
                         const lineStartIndex = displayLines.slice(0, lineIdx).reduce((sum, l) => sum + l.sanskrit.length, 0);
                         const wordStartGlobalIndex = lineStartIndex + word.startIndex;
 
-                        // Check if any syllable in the word has errors
-                        const wordHasErrors = word.syllables.some((_, idx) => {
-                          const globalIdx = wordStartGlobalIndex + idx;
-                          const match = syllableMatches.find(m => m.syllableIndex === globalIdx);
-                          return match && (match.accuracy === 'fair' || match.accuracy === 'poor');
-                        });
-
                         // Calculate average accuracy for the word
                         const wordMatches = word.syllables.map((_, idx) => {
                           const globalIdx = wordStartGlobalIndex + idx;
@@ -775,6 +840,30 @@ export default function PracticePage() {
                             : 'poor'
                           : undefined;
 
+                        // Calculate if this word is currently being played using weighted timing
+                        const currentLineForWord = displayLines[lineIdx];
+                        const isWordPlaying = isPlaying &&
+                          currentLineForWord.audioStartTime !== undefined &&
+                          currentLineForWord.audioEndTime !== undefined &&
+                          audioProgress >= currentLineForWord.audioStartTime &&
+                          audioProgress < currentLineForWord.audioEndTime;
+
+                        // Calculate word timing using swara-based weights
+                        let isThisWordActive = false;
+                        if (isWordPlaying && currentLineForWord.audioStartTime !== undefined && currentLineForWord.audioEndTime !== undefined) {
+                          const syllableTimings = calculateSyllableTimings(currentLineForWord);
+                          const wordStartSyllableIdx = word.startIndex;
+                          const wordEndSyllableIdx = word.startIndex + word.syllables.length;
+
+                          if (syllableTimings.length > wordStartSyllableIdx) {
+                            const wordStartTime = syllableTimings[wordStartSyllableIdx].start;
+                            const wordEndTime = wordEndSyllableIdx < syllableTimings.length
+                              ? syllableTimings[wordEndSyllableIdx].start
+                              : currentLineForWord.audioEndTime;
+                            isThisWordActive = audioProgress >= wordStartTime && audioProgress < wordEndTime;
+                          }
+                        }
+
                         return (
                           <motion.div
                             key={`word-${wordIdx}`}
@@ -784,12 +873,21 @@ export default function PracticePage() {
                             className="relative"
                           >
                             {/* Word container with mixed colors and overall border */}
-                            <div className={`flex rounded-xl border-2 ${
+                            <div className={`relative flex rounded-xl border-2 ${
                               wordAccuracy ? getFeedbackColor(wordAccuracy) : 'border-white/20'
                             }`}>
+                              {/* Audio progress overlay */}
+                              {isThisWordActive && (
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: [0.3, 0.5, 0.3] }}
+                                  transition={{ duration: 1, repeat: Infinity }}
+                                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/40 to-purple-400/40 pointer-events-none z-10"
+                                />
+                              )}
+
                               {word.syllables.map((syllable, sylIdx) => {
                                 const globalIdx = wordStartGlobalIndex + sylIdx;
-                                const match = syllableMatches.find(m => m.syllableIndex === globalIdx);
                                 const comprehensiveResult = comprehensiveResults.find(r => r.syllableIndex === globalIdx);
                                 const isRecordingActive = isRecording && currentSyllableIndex === globalIdx;
                                 const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
@@ -809,7 +907,7 @@ export default function PracticePage() {
                                     <motion.div
                                       animate={isRecordingActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
                                       transition={isRecordingActive ? { repeat: Infinity, duration: 0.8 } : {}}
-                                      className={`px-3 py-2 font-bold text-xl ${
+                                      className={`px-3 py-2 font-bold text-xl relative z-0 ${
                                         isRecordingActive
                                           ? 'bg-cyan-500/30 text-cyan-200'
                                           : getSwaraColor(syllable.swara)
