@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Mic, BookOpen, TrendingUp, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 
 export default function Home() {
   return (
@@ -28,6 +29,39 @@ export default function Home() {
             }}
           />
         ))}
+      </div>
+
+      {/* Top Right - User/Sign In */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <SignedOut>
+          <SignInButton mode="modal">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-medium transition-all text-sm"
+            >
+              Sign In
+            </motion.button>
+          </SignInButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-10 h-10"
+              }
+            }}
+          />
+        </SignedIn>
+        <Link href="/admin">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 rounded-lg bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 transition-all text-sm"
+          >
+            Admin
+          </motion.button>
+        </Link>
       </div>
 
       {/* Main content */}

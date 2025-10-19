@@ -180,18 +180,52 @@ export default function PracticePage() {
   };
 
   // Calculate weighted syllable timings for a line
-  const calculateSyllableTimings = (line: typeof displayLines[0]) => {
-    if (!line.audioStartTime || !line.audioEndTime) return [];
+  const calculateSyllableTimings = (line: typeof displayLines[0], lineIndex: number) => {
+    // Try to use explicit timing data first
+    if (line.audioStartTime !== undefined && line.audioEndTime !== undefined) {
+      const lineDuration = line.audioEndTime - line.audioStartTime;
+      const weights = line.sanskrit.map(s => getSwaraDurationWeight(s.swara));
+      const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
-    const lineDuration = line.audioEndTime - line.audioStartTime;
+      const timings: Array<{ start: number; end: number }> = [];
+      let currentTime = line.audioStartTime;
+
+      line.sanskrit.forEach((syllable, idx) => {
+        const syllableDuration = (weights[idx] / totalWeight) * lineDuration;
+        timings.push({
+          start: currentTime,
+          end: currentTime + syllableDuration
+        });
+        currentTime += syllableDuration;
+      });
+
+      return timings;
+    }
+
+    // Fallback: estimate timing based on audio duration if no explicit timing
+    const audio = audioRef.current;
+    if (!audio || !audio.duration || audio.duration === Infinity) return [];
+
+    // Calculate total syllables across all lines to distribute duration
+    const totalSyllables = displayLines.reduce((sum, l) => sum + l.sanskrit.length, 0);
+    const averageTimePerSyllable = audio.duration / totalSyllables;
+
+    // Calculate the starting offset for this line
+    const syllablesBeforeThisLine = displayLines
+      .slice(0, lineIndex)
+      .reduce((sum, l) => sum + l.sanskrit.length, 0);
+    const lineStartTime = syllablesBeforeThisLine * averageTimePerSyllable;
+
+    // Now calculate timings for syllables in this line using swara weights
     const weights = line.sanskrit.map(s => getSwaraDurationWeight(s.swara));
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    const estimatedLineDuration = line.sanskrit.length * averageTimePerSyllable;
 
     const timings: Array<{ start: number; end: number }> = [];
-    let currentTime = line.audioStartTime;
+    let currentTime = lineStartTime;
 
     line.sanskrit.forEach((syllable, idx) => {
-      const syllableDuration = (weights[idx] / totalWeight) * lineDuration;
+      const syllableDuration = (weights[idx] / totalWeight) * estimatedLineDuration;
       timings.push({
         start: currentTime,
         end: currentTime + syllableDuration
@@ -748,17 +782,10 @@ export default function PracticePage() {
                         const hasFeedback = match !== undefined;
                         const hasSwaraFeedback = isSwaraReady && comprehensiveResult !== undefined;
 
-                        // Calculate if this syllable is currently being played using weighted timing
-                        const isSyllablePlaying = isPlaying &&
-                          line.audioStartTime !== undefined &&
-                          line.audioEndTime !== undefined &&
-                          audioProgress >= line.audioStartTime &&
-                          audioProgress < line.audioEndTime;
-
                         // Calculate syllable timing using swara-based weights
                         let isThisSyllableActive = false;
-                        if (isSyllablePlaying) {
-                          const syllableTimings = calculateSyllableTimings(line);
+                        if (isPlaying && audioProgress > 0) {
+                          const syllableTimings = calculateSyllableTimings(line, lineIdx);
                           if (syllableTimings.length > index) {
                             const timing = syllableTimings[index];
                             isThisSyllableActive = audioProgress >= timing.start && audioProgress < timing.end;
@@ -840,18 +867,11 @@ export default function PracticePage() {
                             : 'poor'
                           : undefined;
 
-                        // Calculate if this word is currently being played using weighted timing
-                        const currentLineForWord = displayLines[lineIdx];
-                        const isWordPlaying = isPlaying &&
-                          currentLineForWord.audioStartTime !== undefined &&
-                          currentLineForWord.audioEndTime !== undefined &&
-                          audioProgress >= currentLineForWord.audioStartTime &&
-                          audioProgress < currentLineForWord.audioEndTime;
-
                         // Calculate word timing using swara-based weights
+                        const currentLineForWord = displayLines[lineIdx];
                         let isThisWordActive = false;
-                        if (isWordPlaying && currentLineForWord.audioStartTime !== undefined && currentLineForWord.audioEndTime !== undefined) {
-                          const syllableTimings = calculateSyllableTimings(currentLineForWord);
+                        if (isPlaying && audioProgress > 0) {
+                          const syllableTimings = calculateSyllableTimings(currentLineForWord, lineIdx);
                           const wordStartSyllableIdx = word.startIndex;
                           const wordEndSyllableIdx = word.startIndex + word.syllables.length;
 
@@ -859,7 +879,7 @@ export default function PracticePage() {
                             const wordStartTime = syllableTimings[wordStartSyllableIdx].start;
                             const wordEndTime = wordEndSyllableIdx < syllableTimings.length
                               ? syllableTimings[wordEndSyllableIdx].start
-                              : currentLineForWord.audioEndTime;
+                              : syllableTimings[syllableTimings.length - 1].end;
                             isThisWordActive = audioProgress >= wordStartTime && audioProgress < wordEndTime;
                           }
                         }

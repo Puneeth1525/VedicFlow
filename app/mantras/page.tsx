@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { UserButton } from '@clerk/nextjs';
 
 // Sample mantras data - you can expand this
 const mantras = [
@@ -45,22 +46,33 @@ export default function MantrasPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 transition-all"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </motion.button>
-          </Link>
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Sacred Mantras
-            </h1>
-            <p className="text-purple-200 mt-1">Choose a mantra to begin your practice</p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="p-2 rounded-full bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 transition-all"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </motion.button>
+            </Link>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                Sacred Mantras
+              </h1>
+              <p className="text-purple-200 mt-1">Choose a mantra to begin your practice</p>
+            </div>
           </div>
+
+          {/* User Button */}
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-10 h-10"
+              }
+            }}
+          />
         </div>
 
         {/* Mantras Grid */}
