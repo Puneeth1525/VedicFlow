@@ -8,15 +8,19 @@ export default function Page() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent mb-2">
             Vedic Chanting Coach
           </h1>
-          <p className="text-purple-300">Sign in to continue your practice</p>
+          <p className="text-purple-300">Welcome back! Enter your email</p>
+          <p className="text-purple-400 text-sm mt-2">We'll send you a magic link to sign in</p>
         </div>
         <SignIn
           appearance={{
             elements: {
               rootBox: "mx-auto",
-              card: "bg-white/10 backdrop-blur-lg border border-white/20"
+              card: "bg-white/10 backdrop-blur-lg border border-white/20",
+              formButtonPrimary: "bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500",
+              footerActionLink: "text-purple-400 hover:text-purple-300"
             }
           }}
+          signUpUrl="/sign-up"
         />
       </div>
     </div>
