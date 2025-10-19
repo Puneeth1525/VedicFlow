@@ -21,10 +21,8 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-  // Enable experimental features for better PDF handling
-  experimental: {
-    serverComponentsExternalPackages: ['pdfjs-dist'],
-  },
+  // External packages for server components (moved from experimental in Next.js 15)
+  serverExternalPackages: ['pdfjs-dist'],
 };
 
 export default nextConfig;
