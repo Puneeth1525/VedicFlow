@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, unlink } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,16 +34,19 @@ export async function POST(request: NextRequest) {
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   return new Promise(async (resolve, reject) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const PDFParser = require('pdf2json');
       const pdfParser = new PDFParser(null, 1);
 
       let extractedText = '';
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pdfParser.on('pdfParser_dataError', (errData: any) => {
         console.error('PDF Parse Error:', errData.parserError);
         reject(new Error(errData.parserError));
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
         try {
           // Extract text from all pages

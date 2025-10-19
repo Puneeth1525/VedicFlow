@@ -9,7 +9,7 @@ export default function Page() {
             Vedic Chanting Coach
           </h1>
           <p className="text-purple-300">Enter your email to get started</p>
-          <p className="text-purple-400 text-sm mt-2">No passwords needed - we'll send you a magic link</p>
+          <p className="text-purple-400 text-sm mt-2">No passwords needed - we&apos;ll send you a magic link</p>
         </div>
         <SignUp
           appearance={{
