@@ -109,34 +109,37 @@ function CinematicOpeningSection() {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded, duration:', video.duration);
-      setVideoReady(true);
-      video.pause(); // Ensure video doesn't autoplay
+    let isReady = false;
+
+    const setReady = () => {
+      if (!isReady) {
+        isReady = true;
+        setVideoReady(true);
+      }
     };
 
-    const handleError = (e: Event) => {
-      console.error('Video error:', e);
+    const handleLoadedMetadata = () => {
+      video.pause(); // Ensure video doesn't autoplay
+      setReady();
+    };
+
+    const handleError = () => {
       // Set ready anyway to show the page
-      setVideoReady(true);
+      setReady();
     };
 
     const handleCanPlay = () => {
-      console.log('Video can play');
-      if (!videoReady) {
-        setVideoReady(true);
-      }
+      setReady();
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('error', handleError);
     video.addEventListener('canplay', handleCanPlay);
 
-    // Fallback: set ready after 3 seconds if nothing loads
+    // Fallback: set ready after 2 seconds if nothing loads
     const timeout = setTimeout(() => {
-      console.log('Timeout: forcing video ready state');
-      setVideoReady(true);
-    }, 3000);
+      setReady();
+    }, 2000);
 
     video.load();
 
@@ -146,7 +149,7 @@ function CinematicOpeningSection() {
       video.removeEventListener('canplay', handleCanPlay);
       clearTimeout(timeout);
     };
-  }, [videoReady]);
+  }, []);
 
   // Update video currentTime based on scroll position
   useEffect(() => {
