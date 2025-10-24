@@ -98,36 +98,55 @@ function Header({ currentSection, scrollProgress }: { currentSection: number; sc
 function CinematicOpeningSection() {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoReady, setVideoReady] = useState(false);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start start", "end start"]
   });
 
+  // Wait for video metadata to load
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoadedMetadata = () => {
+      setVideoReady(true);
+      video.pause(); // Ensure video doesn't autoplay
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.load();
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, []);
+
   // Update video currentTime based on scroll position
   useEffect(() => {
+    if (!videoReady) return;
+
     const unsubscribe = scrollYProgress.on('change', (latest) => {
-      if (videoRef.current) {
+      if (videoRef.current && videoRef.current.duration) {
         const duration = videoRef.current.duration;
-        if (duration && !isNaN(duration)) {
-          // Map scroll progress (0-1) to video duration
-          videoRef.current.currentTime = duration * latest;
-        }
+        // Map scroll progress (0-1) to video duration
+        videoRef.current.currentTime = duration * latest;
       }
     });
 
     return () => unsubscribe();
-  }, [scrollYProgress]);
-
-  // Preload video metadata
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
-  }, []);
+  }, [scrollYProgress, videoReady]);
 
   return (
     <section ref={ref} className="relative h-[400vh]">
       <div className="sticky top-0 left-0 h-screen w-full overflow-hidden bg-black">
+        {/* Loading indicator */}
+        {!videoReady && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black z-20">
+            <div className="text-amber-400 text-xl">Loading sacred journey...</div>
+          </div>
+        )}
+
         {/* Scroll-driven video - stays fixed while scrolling */}
         <video
           ref={videoRef}
