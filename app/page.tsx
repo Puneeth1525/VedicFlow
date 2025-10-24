@@ -1,221 +1,295 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Mic, BookOpen, TrendingUp, Sparkles } from 'lucide-react';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { useRef, useState, Suspense, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Float, MeshDistortMaterial, Sphere, Stars } from '@react-three/drei';
+import * as THREE from 'three';
 
 export default function Home() {
+  const [currentSection, setCurrentSection] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white overflow-hidden">
-      {/* Animated background particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-purple-400 rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, -100, 0],
-              opacity: [0, 1, 0],
-            }}
-            transition={{
-              duration: Math.random() * 5 + 3,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
+    <div ref={containerRef} className="bg-black text-white overflow-x-hidden relative">
+      {/* Fixed Header with Progress */}
+      <Header currentSection={currentSection} scrollProgress={scrollYProgress} />
+
+      {/* Epic Opening: Rishi Meditation → Ear Zoom → Mandala */}
+      <CinematicOpeningSection />
+
+      {/* Portal Sections */}
+      <Portal3DSection
+        sectionNumber={1}
+        title="The Cosmic Hearing"
+        subtitle="Shruti: That Which Was Heard"
+        description="In states of profound consciousness, the ancient rishis heard the eternal vibrations of the universe"
+        onSectionChange={setCurrentSection}
+        color="#8b5cf6"
+      />
+
+      <Portal3DSection
+        sectionNumber={2}
+        title="The Sacred Architecture"
+        subtitle="Designed for Immortality"
+        description="The rishis encoded the Vedas in patterns of sound and rhythm, designed to live in memory for millennia"
+        onSectionChange={setCurrentSection}
+        color="#f59e0b"
+      />
+
+      <Portal3DSection
+        sectionNumber={3}
+        title="The Unbroken Chain"
+        subtitle="40,000 Years of Perfect Fidelity"
+        description="From guru to shishya, the sacred knowledge passed through an unbroken lineage"
+        onSectionChange={setCurrentSection}
+        color="#14b8a6"
+      />
+
+      {/* Final CTA */}
+      <FinalCTASection />
+
+      {/* Footer */}
+      <footer className="relative z-10 py-12 px-4 border-t border-white/5">
+        <div className="max-w-7xl mx-auto text-center text-white/40 text-sm">
+          <p>Preserving 40,000 years of sacred knowledge</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// Header
+function Header({ currentSection, scrollProgress }: { currentSection: number; scrollProgress: any }) {
+  const scaleX = useTransform(scrollProgress, [0, 1], [0, 1]);
+
+  return (
+    <motion.header className="fixed top-0 left-0 right-0 z-50 px-4 py-4" initial={{ y: -100 }} animate={{ y: 0 }} transition={{ duration: 0.6 }}>
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10">
+        <motion.div className="h-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ scaleX, transformOrigin: 'left' }} />
       </div>
-
-      {/* Top Right - User/Sign In */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <SignedOut>
-          <SignInButton mode="modal">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-medium transition-all text-sm"
-            >
-              Sign In
-            </motion.button>
-          </SignInButton>
-        </SignedOut>
-        <SignedIn>
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-10 h-10"
-              }
-            }}
-          />
-        </SignedIn>
-        <Link href="/admin">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 rounded-lg bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 transition-all text-sm"
-          >
-            Admin
-          </motion.button>
-        </Link>
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <motion.div className="text-xl font-semibold bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent" whileHover={{ scale: 1.05 }}>
+          VedicFlow
+        </motion.div>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:block text-amber-400/60 text-sm font-mono">{currentSection}/3</div>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 text-white font-medium text-sm">
+                Sign In
+              </motion.button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton appearance={{ elements: { avatarBox: "w-9 h-9" } }} />
+          </SignedIn>
+        </div>
       </div>
+    </motion.header>
+  );
+}
 
-      {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-12"
+// CINEMATIC OPENING: Scroll-Driven Video
+function CinematicOpeningSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"]
+  });
+
+  // Update video currentTime based on scroll position
+  useEffect(() => {
+    const unsubscribe = scrollYProgress.on('change', (latest) => {
+      if (videoRef.current) {
+        const duration = videoRef.current.duration;
+        if (duration && !isNaN(duration)) {
+          // Map scroll progress (0-1) to video duration
+          videoRef.current.currentTime = duration * latest;
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [scrollYProgress]);
+
+  // Preload video metadata
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, []);
+
+  return (
+    <section ref={ref} className="relative h-[400vh]">
+      <div className="sticky top-0 left-0 h-screen w-full overflow-hidden bg-black">
+        {/* Scroll-driven video - stays fixed while scrolling */}
+        <video
+          ref={videoRef}
+          className="fixed top-0 left-0 w-full h-full object-cover z-0"
+          preload="auto"
+          muted
+          playsInline
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="inline-flex items-center gap-2 mb-6"
-          >
-            <Sparkles className="w-8 h-8 text-purple-400" />
-            <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-              VedicFlow
-            </h1>
-            <Sparkles className="w-8 h-8 text-cyan-400" />
-          </motion.div>
+          <source src="/videos/rishi-intro.mp4" type="video/mp4" />
+        </video>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-xl md:text-2xl text-purple-200 max-w-2xl mx-auto"
-          >
-            Master the ancient art of Vedic chanting with AI-powered precision
-          </motion.p>
-        </motion.div>
-
-        {/* Feature cards */}
+        {/* Text Overlay */}
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="grid md:grid-cols-3 gap-6 max-w-5xl w-full mb-12"
+          className="fixed inset-0 flex items-center justify-center pointer-events-none z-10"
+          style={{ opacity: useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [1, 0, 0, 0]) }}
         >
-          <FeatureCard
-            icon={<BookOpen className="w-8 h-8" />}
-            title="Sacred Mantras"
-            description="Access a comprehensive library of Vedic mantras and shlokas"
-            delay={0.7}
-          />
-          <FeatureCard
-            icon={<Mic className="w-8 h-8" />}
-            title="Swara Analysis"
-            description="Perfect your pronunciation with real-time pitch detection"
-            delay={0.8}
-          />
-          <FeatureCard
-            icon={<TrendingUp className="w-8 h-8" />}
-            title="Track Progress"
-            description="Monitor your improvement across different mantras"
-            delay={0.9}
-          />
-        </motion.div>
-
-        {/* CTA Button */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 1 }}
-        >
-          <Link href="/mantras">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative group px-8 py-4 text-lg font-semibold rounded-full overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 group-hover:from-purple-500 group-hover:via-pink-500 group-hover:to-cyan-500 transition-all duration-300" />
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 blur-xl transition-opacity duration-300" />
-              <span className="relative flex items-center gap-2">
-                Begin Your Journey
-                <motion.span
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                >
-                  →
-                </motion.span>
+          <div className="text-center px-4 max-w-5xl">
+            <h1 className="text-5xl sm:text-6xl md:text-8xl font-bold mb-6 leading-tight">
+              <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent">
+                40,000 Years
               </span>
-            </motion.button>
-          </Link>
+              <br />
+              <span className="text-white/90 text-4xl sm:text-5xl md:text-6xl">
+                of Sacred Knowledge
+              </span>
+            </h1>
+            <p className="text-lg sm:text-xl text-white/60">In deep meditation, the rishis heard the eternal vibrations</p>
+          </div>
         </motion.div>
 
-        {/* Swara Legend */}
+        {/* Scroll hint */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-          className="mt-16 p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 pointer-events-none z-10"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          style={{ opacity: useTransform(scrollYProgress, [0, 0.1], [1, 0]) }}
         >
-          <h3 className="text-lg font-semibold mb-4 text-center text-purple-300">
-            The Four Swaras
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <SwaraTag name="Anudātta" color="bg-blue-500" description="Low ↓" />
-            <SwaraTag name="Udātta" color="bg-yellow-500" description="Base —" />
-            <SwaraTag name="Swarita" color="bg-red-500" description="Rising ↗" />
-            <SwaraTag name="Dīrgha Swarita" color="bg-green-500" description="Prolonged Rising ⤴" />
+          <div className="flex flex-col items-center gap-2 text-amber-400/60">
+            <span className="text-sm">Scroll to begin the journey</span>
+            <ChevronDown className="w-6 h-6" />
           </div>
         </motion.div>
       </div>
+    </section>
+  );
+}
+
+
+// Portal sections (same as before)
+function Portal3DSection({ sectionNumber, title, subtitle, description, color, onSectionChange }: any) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const isInView = useInView(ref, { amount: 0.5 });
+  const scale = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0.5, 1, 0.5]);
+  const opacity = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0, 1, 0]);
+
+  return (
+    <section ref={ref} className="relative h-screen flex items-center justify-center">
+      <motion.div className="absolute inset-0" style={{ opacity }}>
+        <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+          <Suspense fallback={null}>
+            <ambientLight intensity={0.3} />
+            <pointLight position={[10, 10, 10]} intensity={0.8} color={color} />
+            <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.2}>
+              <mesh scale={[2, 2, 2]}>
+                <icosahedronGeometry args={[1, 4]} />
+                <MeshDistortMaterial color={color} distort={0.5} speed={3} roughness={0} metalness={0.5} opacity={0.6} transparent />
+              </mesh>
+            </Float>
+            <Points count={2000} color={color} />
+            <SacredGeometry color={color} section={sectionNumber} />
+          </Suspense>
+        </Canvas>
+      </motion.div>
+
+      <motion.div style={{ scale, opacity }} className="relative z-10 max-w-4xl mx-auto text-center px-4">
+        <div className="inline-block px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
+          <span className="text-amber-400 font-mono text-sm">{sectionNumber}/3</span>
+        </div>
+        <h2 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">{title}</h2>
+        <h3 className="text-xl sm:text-2xl md:text-3xl text-amber-300/60 mb-8 font-light">{subtitle}</h3>
+        <p className="text-lg sm:text-xl md:text-2xl text-white/80 leading-relaxed max-w-3xl mx-auto">{description}</p>
+        {sectionNumber === 2 && <MiniSwaraShowcase />}
+      </motion.div>
+    </section>
+  );
+}
+
+function Points({ count, color }: { count: number; color: string }) {
+  const points = useRef<THREE.Points>(null);
+  const particlesPosition = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    particlesPosition[i * 3] = (Math.random() - 0.5) * 10;
+    particlesPosition[i * 3 + 1] = (Math.random() - 0.5) * 10;
+    particlesPosition[i * 3 + 2] = (Math.random() - 0.5) * 10;
+  }
+  useFrame(({ clock }) => { if (points.current) points.current.rotation.y = clock.getElapsedTime() * 0.05; });
+  return (
+    <points ref={points}>
+      <bufferGeometry><bufferAttribute attach="attributes-position" count={count} array={particlesPosition} itemSize={3} /></bufferGeometry>
+      <pointsMaterial size={0.02} color={color} sizeAttenuation transparent opacity={0.6} />
+    </points>
+  );
+}
+
+function SacredGeometry({ color, section }: { color: string; section: number }) {
+  const group = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => { if (group.current) { group.current.rotation.x = Math.sin(clock.getElapsedTime() * 0.3) * 0.2; group.current.rotation.y = clock.getElapsedTime() * 0.2; } });
+  return (
+    <group ref={group}>
+      {section === 1 && <>{[0, 1, 2, 3].map((i) => <mesh key={i} position={[Math.cos(i * Math.PI / 2) * 2, Math.sin(i * Math.PI / 2) * 2, 0]}><tetrahedronGeometry args={[0.3]} /><meshStandardMaterial color={color} wireframe /></mesh>)}</>}
+      {section === 2 && <>{[0, 1, 2, 3, 4, 5].map((i) => <mesh key={i} position={[Math.cos(i * Math.PI / 3) * 2.5, Math.sin(i * Math.PI / 3) * 2.5, 0]}><octahedronGeometry args={[0.3]} /><meshStandardMaterial color={color} wireframe /></mesh>)}</>}
+      {section === 3 && <>{[0, 1, 2, 3, 4].map((i) => <mesh key={i} position={[Math.cos(i * Math.PI / 2.5) * 3, Math.sin(i * Math.PI / 2.5) * 3, 0]}><dodecahedronGeometry args={[0.3]} /><meshStandardMaterial color={color} wireframe /></mesh>)}</>}
+    </group>
+  );
+}
+
+function MiniSwaraShowcase() {
+  const swaras = [
+    { name: "Udātta", symbol: "—", color: "from-yellow-500 to-amber-500" },
+    { name: "Anudātta", symbol: "↓", color: "from-blue-500 to-cyan-500" },
+    { name: "Swarita", symbol: "↗", color: "from-red-500 to-rose-500" },
+    { name: "Dīrgha Swarita", symbol: "⤴", color: "from-green-500 to-emerald-500" },
+  ];
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
+      {swaras.map((swara, i) => (
+        <motion.div key={swara.name} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1, duration: 0.4 }} viewport={{ once: false }} whileHover={{ scale: 1.1, y: -5 }} className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+          <div className={`text-4xl mb-2 bg-gradient-to-r ${swara.color} bg-clip-text text-transparent font-bold`}>{swara.symbol}</div>
+          <div className="text-sm text-white/80">{swara.name}</div>
+        </motion.div>
+      ))}
     </div>
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-  delay,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  delay: number;
-}) {
+function FinalCTASection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: false, amount: 0.5 });
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      whileHover={{ scale: 1.05, y: -5 }}
-      className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 transition-all duration-300"
-    >
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 flex items-center justify-center mb-4 text-purple-400">
-        {icon}
+    <section ref={ref} className="relative min-h-screen flex items-center justify-center px-4 py-20">
+      <div className="absolute inset-0 opacity-30">
+        <Canvas camera={{ position: [0, 0, 6] }}>
+          <Suspense fallback={null}>
+            <ambientLight intensity={0.5} />
+            <Float speed={2}><Sphere args={[2, 64, 64]}><MeshDistortMaterial color="#f59e0b" distort={0.4} speed={2} roughness={0.2} /></Sphere></Float>
+            <Stars />
+          </Suspense>
+        </Canvas>
       </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-purple-200/80">{description}</p>
-    </motion.div>
-  );
-}
-
-function SwaraTag({
-  name,
-  color,
-  description,
-}: {
-  name: string;
-  color: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={`w-3 h-3 rounded-full ${color}`} />
-      <div className="text-center">
-        <p className="text-sm font-semibold text-white">{name}</p>
-        <p className="text-xs text-purple-300">{description}</p>
-      </div>
-    </div>
+      <motion.div initial={{ opacity: 0, y: 50 }} animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }} transition={{ duration: 0.8 }} className="max-w-4xl mx-auto text-center z-10 relative">
+        <h2 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-8 bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent">Begin Your Journey</h2>
+        <p className="text-xl sm:text-2xl text-white/60 mb-12">Join the ancient lineage of Vedic chanters with AI-powered precision</p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link href="/mantras"><motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative group px-10 py-5 rounded-full overflow-hidden text-xl font-semibold"><div className="absolute inset-0 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 group-hover:from-amber-500 group-hover:via-orange-500 group-hover:to-amber-500 transition-all duration-300" /><span className="relative text-white">Start Practicing →</span></motion.button></Link>
+          <Link href="/admin"><motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-10 py-5 rounded-full border-2 border-white/20 hover:border-amber-400/50 text-white hover:text-amber-400 transition-all text-xl font-semibold">Explore Library</motion.button></Link>
+        </div>
+      </motion.div>
+    </section>
   );
 }
