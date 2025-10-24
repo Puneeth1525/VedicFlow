@@ -32,7 +32,6 @@ export default function Home() {
         title="The Cosmic Hearing"
         subtitle="Shruti: That Which Was Heard"
         description="In states of profound consciousness, the ancient rishis heard the eternal vibrations of the universe"
-        onSectionChange={setCurrentSection}
         color="#8b5cf6"
       />
 
@@ -41,7 +40,6 @@ export default function Home() {
         title="The Sacred Architecture"
         subtitle="Designed for Immortality"
         description="The rishis encoded the Vedas in patterns of sound and rhythm, designed to live in memory for millennia"
-        onSectionChange={setCurrentSection}
         color="#f59e0b"
       />
 
@@ -50,7 +48,6 @@ export default function Home() {
         title="The Unbroken Chain"
         subtitle="40,000 Years of Perfect Fidelity"
         description="From guru to shishya, the sacred knowledge passed through an unbroken lineage"
-        onSectionChange={setCurrentSection}
         color="#14b8a6"
       />
 
@@ -68,7 +65,7 @@ export default function Home() {
 }
 
 // Header
-function Header({ currentSection, scrollProgress }: { currentSection: number; scrollProgress: any }) {
+function Header({ currentSection, scrollProgress }: { currentSection: number; scrollProgress: ReturnType<typeof useScroll>['scrollYProgress'] }) {
   const scaleX = useTransform(scrollProgress, [0, 1], [0, 1]);
 
   return (
@@ -181,10 +178,9 @@ function CinematicOpeningSection() {
 
 
 // Portal sections (same as before)
-function Portal3DSection({ sectionNumber, title, subtitle, description, color, onSectionChange }: any) {
+function Portal3DSection({ sectionNumber, title, subtitle, description, color }: { sectionNumber: number; title: string; subtitle: string; description: string; color: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const isInView = useInView(ref, { amount: 0.5 });
   const scale = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0.5, 1, 0.5]);
   const opacity = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0, 1, 0]);
 
