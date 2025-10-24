@@ -4,13 +4,12 @@ import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
-import { useRef, useState, Suspense, useEffect } from 'react';
+import { useRef, useState, Suspense, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, MeshDistortMaterial, Sphere, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
 export default function Home() {
-  const [currentSection, setCurrentSection] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { scrollYProgress } = useScroll({
@@ -21,7 +20,7 @@ export default function Home() {
   return (
     <div ref={containerRef} className="bg-black text-white overflow-x-hidden relative">
       {/* Fixed Header with Progress */}
-      <Header currentSection={currentSection} scrollProgress={scrollYProgress} />
+      <Header currentSection={0} scrollProgress={scrollYProgress} />
 
       {/* Epic Opening: Rishi Meditation → Ear Zoom → Mandala */}
       <CinematicOpeningSection />
@@ -218,16 +217,29 @@ function Portal3DSection({ sectionNumber, title, subtitle, description, color }:
 
 function Points({ count, color }: { count: number; color: string }) {
   const points = useRef<THREE.Points>(null);
-  const particlesPosition = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    particlesPosition[i * 3] = (Math.random() - 0.5) * 10;
-    particlesPosition[i * 3 + 1] = (Math.random() - 0.5) * 10;
-    particlesPosition[i * 3 + 2] = (Math.random() - 0.5) * 10;
-  }
+  const particlesPosition = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+    }
+    return positions;
+  }, [count]);
+
   useFrame(({ clock }) => { if (points.current) points.current.rotation.y = clock.getElapsedTime() * 0.05; });
+
   return (
     <points ref={points}>
-      <bufferGeometry><bufferAttribute attach="attributes-position" count={count} array={particlesPosition} itemSize={3} /></bufferGeometry>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          array={particlesPosition}
+          itemSize={3}
+          args={[particlesPosition, 3]}
+        />
+      </bufferGeometry>
       <pointsMaterial size={0.02} color={color} sizeAttenuation transparent opacity={0.6} />
     </points>
   );
