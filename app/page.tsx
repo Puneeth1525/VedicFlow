@@ -110,17 +110,43 @@ function CinematicOpeningSection() {
     if (!video) return;
 
     const handleLoadedMetadata = () => {
+      console.log('Video metadata loaded, duration:', video.duration);
       setVideoReady(true);
       video.pause(); // Ensure video doesn't autoplay
     };
 
+    const handleError = (e: Event) => {
+      console.error('Video error:', e);
+      // Set ready anyway to show the page
+      setVideoReady(true);
+    };
+
+    const handleCanPlay = () => {
+      console.log('Video can play');
+      if (!videoReady) {
+        setVideoReady(true);
+      }
+    };
+
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('error', handleError);
+    video.addEventListener('canplay', handleCanPlay);
+
+    // Fallback: set ready after 3 seconds if nothing loads
+    const timeout = setTimeout(() => {
+      console.log('Timeout: forcing video ready state');
+      setVideoReady(true);
+    }, 3000);
+
     video.load();
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('canplay', handleCanPlay);
+      clearTimeout(timeout);
     };
-  }, []);
+  }, [videoReady]);
 
   // Update video currentTime based on scroll position
   useEffect(() => {
