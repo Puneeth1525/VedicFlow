@@ -99,13 +99,6 @@ export class SyllableSegmenter {
     // Onset detection needs more tuning for Vedic chanting
     console.log(`📊 Using uniform time distribution (onset detection needs tuning)`);
     return this.uniformDistribution(syllables, totalDuration);
-
-    // TODO: Re-enable onset-based segmentation after improving detection
-    // const segments: SyllableTimeSegment[] = [];
-    // if (onsets.length < syllables.length - 1 || onsets.length > syllables.length + 2) {
-    //   console.warn(`⚠️ Onset count mismatch (${onsets.length} vs ${syllables.length}). Using uniform distribution.`);
-    //   return this.uniformDistribution(syllables, totalDuration);
-    // }
   }
 
   /**

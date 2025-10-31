@@ -443,53 +443,6 @@ export interface SwaraSyllableMatch {
 }
 
 /**
- * Calculate relative pitch (swara) for each syllable
- * Converts absolute frequencies to relative scale positions
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function calculateRelativeSwaras(pitchData: PitchData[]): Array<{ swara: SwaraType; confidence: number }> {
-  if (pitchData.length === 0) return [];
-
-  // Find the base pitch (median frequency)
-  const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
-  const basePitch = frequencies[Math.floor(frequencies.length / 2)];
-
-  // Convert each pitch to relative semitones from base
-  const relativePitches = pitchData.map(p => ({
-    semitones: 12 * Math.log2(p.frequency / basePitch),
-    timestamp: p.timestamp,
-  }));
-
-  // Average the relative pitches to get overall pattern
-  const avgSemitones = relativePitches.reduce((sum, p) => sum + p.semitones, 0) / relativePitches.length;
-
-  // Classify into swara based on relative position
-  // anudātta = low (< -1 semitones from base)
-  // udātta = base (-1 to +1 semitones)
-  // swarita = high (+1 to +3 semitones)
-  // dheerga = very high (> +3 semitones) + prolonged
-
-  let swara: SwaraType;
-  let confidence = 80;
-
-  if (avgSemitones < -1) {
-    swara = 'anudhaata';
-    confidence = Math.min(95, 80 + Math.abs(avgSemitones) * 5);
-  } else if (avgSemitones > 3) {
-    swara = 'dheerga';
-    confidence = Math.min(95, 80 + (avgSemitones - 3) * 5);
-  } else if (avgSemitones > 1) {
-    swara = 'swarita';
-    confidence = Math.min(95, 80 + (avgSemitones - 1) * 5);
-  } else {
-    swara = 'udhaata';
-    confidence = Math.min(95, 80 - Math.abs(avgSemitones) * 5);
-  }
-
-  return [{ swara, confidence }];
-}
-
-/**
  * Analyze swara accuracy based on RELATIVE pitch patterns, not absolute frequencies
  * Speed-independent - allows users to learn slowly
  */

@@ -1,4 +1,4 @@
-# VedicFlow - Deployment Guide
+# VedicFlo - Deployment Guide
 
 ## 🚀 Quick Deploy to Vercel
 
@@ -17,7 +17,7 @@ git init
 git add .
 
 # Commit your changes
-git commit -m "Initial commit - VedicFlow Chanting Coach with pitch detection"
+git commit -m "Initial commit - VedicFlo Chanting Coach with pitch detection"
 
 # Rename branch to main
 git branch -M main
@@ -127,4 +127,4 @@ When presenting:
 6. Show the real-time pitch analysis results
 7. Explain the scoring algorithm
 
-Enjoy your VedicFlow app! 🕉️
+Enjoy your VedicFlo app! 🕉️

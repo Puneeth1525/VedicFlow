@@ -1,4 +1,4 @@
-# VedicFlow - Vedic Chanting Coach App
+# VedicFlo - Vedic Chanting Coach App
 
 A futuristic web application for learning and perfecting Vedic chanting with AI-powered pitch detection and swara analysis.
 
@@ -126,7 +126,7 @@ const mantraData: Record<string, any> = {
    ```bash
    git init
    git add .
-   git commit -m "Initial commit - VedicFlow Chanting Coach"
+   git commit -m "Initial commit - VedicFlo Chanting Coach"
    git branch -M main
    git remote add origin <your-github-repo-url>
    git push -u origin main
