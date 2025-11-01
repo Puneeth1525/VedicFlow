@@ -39,13 +39,6 @@ export default function OnboardingPage() {
 
       // Start pitch detection with real-time callback
       await detector.start((frequency, clarity) => {
-        // Handle silence - reset to null when no sound detected
-        if (frequency === null) {
-          setCurrentFrequency(null);
-          // Don't collect pitch data during silence
-          return;
-        }
-
         setCurrentFrequency(frequency);
         // Collect pitch data for later analysis
         collectedPitchesRef.current.push({
@@ -344,11 +337,11 @@ export default function OnboardingPage() {
                 ? 'All recordings complete!'
                 : `Click to record (${recordingNumber} of 3)`}
             </p>
-            {isRecording && (
+            {isRecording && currentFrequency && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
                 <Volume2 className="w-5 h-5 text-cyan-400" />
                 <span className="text-sm text-cyan-300">
-                  Current pitch: {currentFrequency !== null ? currentFrequency.toFixed(1) : '0.0'} Hz
+                  Current pitch: {currentFrequency.toFixed(1)} Hz
                 </span>
               </div>
             )}

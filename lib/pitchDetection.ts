@@ -36,8 +36,8 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // Lower threshold for better sensitivity to quieter voices
-  if (rms < 0.01) return -1;
+  // Increased threshold for better signal detection - reduced false positives
+  if (rms < 0.05) return -1;
 
   // Autocorrelation using proper method (not absolute difference)
   const correlations = new Float32Array(MAX_SAMPLES);
@@ -63,8 +63,8 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
   const minOffset = Math.floor(sampleRate / 1000); // Max 1000 Hz
 
   for (let offset = minOffset; offset < Math.min(maxOffset, MAX_SAMPLES); offset++) {
-    // Look for strong correlation peak (lowered from 0.6 to 0.5 for better sensitivity)
-    if (correlations[offset] > 0.5 &&
+    // Look for strong correlation peak
+    if (correlations[offset] > 0.6 &&
         correlations[offset] > correlations[offset - 1] &&
         correlations[offset] >= correlations[offset + 1]) {
 
@@ -80,7 +80,7 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
     }
   }
 
-  if (best_offset !== -1 && best_correlation > 0.4) { // Lowered from 0.5 for better sensitivity
+  if (best_offset !== -1 && best_correlation > 0.5) {
     const frequency = sampleRate / best_offset;
     // Filter out unrealistic frequencies
     if (frequency >= 80 && frequency <= 800) {
@@ -160,12 +160,12 @@ export class RealtimePitchDetector {
   private rafId: number | null = null;
   private buffer: Float32Array<ArrayBuffer> | null = null;
 
-  async start(onPitchDetected: (frequency: number | null, clarity: number) => void) {
+  async start(onPitchDetected: (frequency: number, clarity: number) => void) {
     this.audioContext = new AudioContext();
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 2048;
 
-    this.buffer = new Float32Array(this.analyser.fftSize);
+    this.buffer = new Float32Array(new ArrayBuffer(this.analyser.fftSize * 4));
 
     this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -177,11 +177,8 @@ export class RealtimePitchDetector {
       this.analyser.getFloatTimeDomainData(this.buffer);
       const frequency = autoCorrelate(this.buffer, this.audioContext.sampleRate);
 
-      // Always call the callback - null when no sound detected
       if (frequency > 0) {
         onPitchDetected(frequency, 1.0);
-      } else {
-        onPitchDetected(null, 0);
       }
 
       this.rafId = requestAnimationFrame(detectPitch);
@@ -370,57 +367,14 @@ export async function loadAndAnalyzeAudio(audioUrl: string): Promise<PitchData[]
 }
 
 /**
- * Remove octave errors and outliers using statistical methods
- */
-function removeOctaveErrorsAndOutliers(frequencies: number[]): number[] {
-  if (frequencies.length === 0) return [];
-
-  // Calculate median
-  const sorted = [...frequencies].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-
-  // Remove frequencies that are octave errors (2x or 0.5x median)
-  // or statistical outliers (beyond 2 standard deviations)
-  const filtered = frequencies.filter(freq => {
-    // Check for octave errors (within ±10% of 2x or 0.5x)
-    const isDoubleOctave = freq > median * 1.8 && freq < median * 2.2;
-    const isHalfOctave = freq > median * 0.45 && freq < median * 0.55;
-
-    if (isDoubleOctave || isHalfOctave) {
-      return false; // Remove octave errors
-    }
-
-    // Check for statistical outliers
-    const ratio = freq / median;
-    if (ratio < 0.7 || ratio > 1.4) {
-      return false; // Remove outliers beyond ±30% of median
-    }
-
-    return true;
-  });
-
-  return filtered.length > 0 ? filtered : frequencies; // Fallback to original if we filtered everything
-}
-
-/**
  * Calculate base pitch (median of all pitches) for reference
- * Now with improved outlier and octave error filtering
  */
 export function calculateBasePitch(pitchData: PitchData[]): number {
   if (pitchData.length === 0) return 200; // Default fallback
 
-  const frequencies = pitchData.map(p => p.frequency);
-
-  // Remove octave errors and outliers
-  const cleanedFrequencies = removeOctaveErrorsAndOutliers(frequencies);
-
-  if (cleanedFrequencies.length === 0) return 200; // Fallback
-
-  // Calculate median of cleaned data
-  const sorted = cleanedFrequencies.sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-
-  return Math.round(median * 10) / 10; // Round to 1 decimal place
+  const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
+  const median = frequencies[Math.floor(frequencies.length / 2)];
+  return median;
 }
 
 /**
@@ -486,6 +440,53 @@ export interface SwaraSyllableMatch {
   confidence: number;
   accuracy: 'perfect' | 'good' | 'fair' | 'poor';
   semitonesDiff: number;
+}
+
+/**
+ * Calculate relative pitch (swara) for each syllable
+ * Converts absolute frequencies to relative scale positions
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function calculateRelativeSwaras(pitchData: PitchData[]): Array<{ swara: SwaraType; confidence: number }> {
+  if (pitchData.length === 0) return [];
+
+  // Find the base pitch (median frequency)
+  const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
+  const basePitch = frequencies[Math.floor(frequencies.length / 2)];
+
+  // Convert each pitch to relative semitones from base
+  const relativePitches = pitchData.map(p => ({
+    semitones: 12 * Math.log2(p.frequency / basePitch),
+    timestamp: p.timestamp,
+  }));
+
+  // Average the relative pitches to get overall pattern
+  const avgSemitones = relativePitches.reduce((sum, p) => sum + p.semitones, 0) / relativePitches.length;
+
+  // Classify into swara based on relative position
+  // anudātta = low (< -1 semitones from base)
+  // udātta = base (-1 to +1 semitones)
+  // swarita = high (+1 to +3 semitones)
+  // dheerga = very high (> +3 semitones) + prolonged
+
+  let swara: SwaraType;
+  let confidence = 80;
+
+  if (avgSemitones < -1) {
+    swara = 'anudhaata';
+    confidence = Math.min(95, 80 + Math.abs(avgSemitones) * 5);
+  } else if (avgSemitones > 3) {
+    swara = 'dheerga';
+    confidence = Math.min(95, 80 + (avgSemitones - 3) * 5);
+  } else if (avgSemitones > 1) {
+    swara = 'swarita';
+    confidence = Math.min(95, 80 + (avgSemitones - 1) * 5);
+  } else {
+    swara = 'udhaata';
+    confidence = Math.min(95, 80 - Math.abs(avgSemitones) * 5);
+  }
+
+  return [{ swara, confidence }];
 }
 
 /**
