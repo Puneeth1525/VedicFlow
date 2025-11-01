@@ -5,7 +5,7 @@ import { Play, Pause, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSqua
 import { UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatRelativeTime, formatDuration } from '@/lib/format';
+import { formatRelativeTime } from '@/lib/format';
 import OnboardingPage from '@/app/onboarding/page';
 
 type Recording = {

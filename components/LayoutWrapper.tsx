@@ -1,14 +1,13 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import BottomNav from './BottomNav';
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { isLoaded, userId } = useAuth();
+  const { userId } = useAuth();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   // Don't show BottomNav on sign-in, sign-up, landing, and onboarding pages

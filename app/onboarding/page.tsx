@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Mic, CheckCircle, Sparkles, AlertTriangle, Volume2 } from 'lucide-react';
 import { RealtimePitchDetector, calculateBasePitch, type PitchData } from '@/lib/pitchDetection';
 
@@ -15,7 +14,6 @@ export default function OnboardingPage() {
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const collectedPitchesRef = useRef<PitchData[]>([]);
-  const router = useRouter();
 
   // Cleanup pitch detector on unmount
   useEffect(() => {
@@ -230,7 +228,7 @@ export default function OnboardingPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-cyan-400 font-bold">2.</span>
-                  <span>Chant a long, steady "OOOMM" in your natural, comfortable pitch</span>
+                  <span>Chant a long, steady &quot;OOOMM&quot; in your natural, comfortable pitch</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-cyan-400 font-bold">3.</span>
