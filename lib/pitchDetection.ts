@@ -367,14 +367,57 @@ export async function loadAndAnalyzeAudio(audioUrl: string): Promise<PitchData[]
 }
 
 /**
+ * Remove octave errors and outliers using statistical methods
+ */
+function removeOctaveErrorsAndOutliers(frequencies: number[]): number[] {
+  if (frequencies.length === 0) return [];
+
+  // Calculate median
+  const sorted = [...frequencies].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  // Remove frequencies that are octave errors (2x or 0.5x median)
+  // or statistical outliers (beyond 2 standard deviations)
+  const filtered = frequencies.filter(freq => {
+    // Check for octave errors (within ±10% of 2x or 0.5x)
+    const isDoubleOctave = freq > median * 1.8 && freq < median * 2.2;
+    const isHalfOctave = freq > median * 0.45 && freq < median * 0.55;
+
+    if (isDoubleOctave || isHalfOctave) {
+      return false; // Remove octave errors
+    }
+
+    // Check for statistical outliers
+    const ratio = freq / median;
+    if (ratio < 0.7 || ratio > 1.4) {
+      return false; // Remove outliers beyond ±30% of median
+    }
+
+    return true;
+  });
+
+  return filtered.length > 0 ? filtered : frequencies; // Fallback to original if we filtered everything
+}
+
+/**
  * Calculate base pitch (median of all pitches) for reference
+ * Now with improved outlier and octave error filtering
  */
 export function calculateBasePitch(pitchData: PitchData[]): number {
   if (pitchData.length === 0) return 200; // Default fallback
 
-  const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
-  const median = frequencies[Math.floor(frequencies.length / 2)];
-  return median;
+  const frequencies = pitchData.map(p => p.frequency);
+
+  // Remove octave errors and outliers
+  const cleanedFrequencies = removeOctaveErrorsAndOutliers(frequencies);
+
+  if (cleanedFrequencies.length === 0) return 200; // Fallback
+
+  // Calculate median of cleaned data
+  const sorted = cleanedFrequencies.sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  return Math.round(median * 10) / 10; // Round to 1 decimal place
 }
 
 /**

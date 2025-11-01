@@ -12,6 +12,8 @@ export default function OnboardingPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [baseToneHz, setBaseToneHz] = useState<number | null>(null);
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
+  const [recordingNumber, setRecordingNumber] = useState(1); // Track which recording (1, 2, or 3)
+  const [allRecordings, setAllRecordings] = useState<number[]>([]); // Store all 3 base tones
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const collectedPitchesRef = useRef<PitchData[]>([]);
 
@@ -66,7 +68,22 @@ export default function OnboardingPage() {
       try {
         if (collectedPitchesRef.current.length > 0) {
           const basePitch = calculateBasePitch(collectedPitchesRef.current);
-          setBaseToneHz(basePitch);
+
+          // Store this recording
+          const updatedRecordings = [...allRecordings, basePitch];
+          setAllRecordings(updatedRecordings);
+
+          if (recordingNumber < 3) {
+            // Move to next recording
+            setRecordingNumber(recordingNumber + 1);
+            setBaseToneHz(null);
+            setHasRecording(false);
+          } else {
+            // All 3 recordings done - calculate average
+            const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
+            const roundedAverage = Math.round(average * 10) / 10;
+            setBaseToneHz(roundedAverage);
+          }
         } else {
           alert('No pitch data collected. Please try recording again with a longer "OM".');
         }
@@ -109,7 +126,7 @@ export default function OnboardingPage() {
 
   const canProceed = () => {
     if (step === 3) {
-      return baseToneHz !== null;
+      return baseToneHz !== null && allRecordings.length === 3;
     }
     return true;
   };
@@ -210,14 +227,14 @@ export default function OnboardingPage() {
     },
     {
       title: 'Calibrate Your Base Tone',
-      subtitle: 'Record a long "OOOMM" to personalize your experience',
+      subtitle: 'Record "OOOMM" 3 times for accurate calibration',
       content: (
         <div className="space-y-6">
           <div className="p-6 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
             <h3 className="font-semibold text-cyan-200 mb-3">Why do we need this?</h3>
             <p className="text-sm text-purple-200 leading-relaxed mb-4">
               To provide accurate swara (pitch) analysis, we need to know your natural base tone (Udhaatha).
-              This helps us understand your voice range and give you personalized feedback.
+              We&apos;ll take 3 recordings and average them for the most accurate result.
             </p>
             <div className="bg-white/5 rounded-lg p-4">
               <h4 className="font-semibold text-white mb-2">Instructions:</h4>
@@ -242,47 +259,102 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          {/* Recording Progress */}
+          <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-purple-200">Recording Progress</span>
+              <span className="text-sm font-bold text-purple-400">
+                {recordingNumber} of 3
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((num) => (
+                <div
+                  key={num}
+                  className={`flex-1 h-2 rounded-full transition-all ${
+                    num < recordingNumber
+                      ? 'bg-green-500'
+                      : num === recordingNumber
+                      ? 'bg-cyan-500 animate-pulse'
+                      : 'bg-white/10'
+                  }`}
+                />
+              ))}
+            </div>
+            {recordingNumber <= 3 && !baseToneHz && (
+              <p className="text-sm text-purple-300 mt-2">
+                {recordingNumber === 3 ? 'Last recording!' : `${3 - recordingNumber} more ${3 - recordingNumber === 1 ? 'recording' : 'recordings'} to go`}
+              </p>
+            )}
+          </div>
+
+          {/* All Recordings Display */}
+          {allRecordings.length > 0 && (
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <h4 className="text-sm font-semibold text-white mb-3">Recorded Values</h4>
+              <div className="grid grid-cols-3 gap-3">
+                {allRecordings.map((freq, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-center"
+                  >
+                    <div className="text-xs text-cyan-300 mb-1">Recording {idx + 1}</div>
+                    <div className="text-lg font-bold text-cyan-200">{freq.toFixed(1)} Hz</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col items-center gap-4">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={isRecording ? stopRecording : startRecording}
-              disabled={isProcessing}
+              disabled={isProcessing || baseToneHz !== null}
               className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
                 isRecording
                   ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                  : baseToneHz !== null
+                  ? 'bg-green-500'
                   : 'bg-gradient-to-br from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
-              } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${isProcessing || baseToneHz !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isProcessing ? (
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              ) : baseToneHz !== null ? (
+                <CheckCircle className="w-12 h-12 text-white" />
               ) : (
                 <Mic className="w-12 h-12 text-white" />
               )}
             </motion.button>
-            <p className="text-sm text-purple-300">
+            <p className="text-sm text-purple-300 text-center">
               {isProcessing
                 ? 'Analyzing your voice...'
                 : isRecording
                 ? 'Recording... Click to stop'
-                : hasRecording
-                ? 'Recording saved! Click to re-record'
-                : 'Click to start recording'}
+                : baseToneHz !== null
+                ? 'All recordings complete!'
+                : `Click to record (${recordingNumber} of 3)`}
             </p>
             {isRecording && currentFrequency && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
                 <Volume2 className="w-5 h-5 text-cyan-400" />
                 <span className="text-sm text-cyan-300">
-                  Current pitch: {currentFrequency.toFixed(2)} Hz
+                  Current pitch: {currentFrequency.toFixed(1)} Hz
                 </span>
               </div>
             )}
             {baseToneHz && !isRecording && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/20 border border-green-500/30">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-                <span className="text-sm text-green-300">
-                  Base tone detected: {baseToneHz.toFixed(2)} Hz
-                </span>
+              <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-500/20 border border-green-500/30 w-full max-w-md">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+                <div className="text-center">
+                  <div className="text-sm text-green-300 mb-1">Average Base Tone</div>
+                  <div className="text-2xl font-bold text-green-200">{baseToneHz.toFixed(1)} Hz</div>
+                  <div className="text-xs text-green-300/70 mt-1">
+                    Based on {allRecordings.length} recordings
+                  </div>
+                </div>
               </div>
             )}
           </div>
