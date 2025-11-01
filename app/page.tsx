@@ -2,8 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Mic, BookOpen, TrendingUp, Sparkles } from 'lucide-react';
-import Link from 'next/link';
-import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { SignedOut, SignInButton } from '@clerk/nextjs';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';

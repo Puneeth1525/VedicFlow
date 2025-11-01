@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { User, Bell, Shield, Palette, LogOut } from 'lucide-react';
+import { User, Bell, Shield, Palette } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 
 export default function SettingsPage() {
@@ -73,7 +73,7 @@ export default function SettingsPage() {
           >
             <h3 className="text-lg font-semibold text-purple-300 mb-3 px-2">{section.title}</h3>
             <div className="space-y-2">
-              {section.items.map((item, itemIndex) => {
+              {section.items.map((item) => {
                 const Icon = item.icon;
                 return (
                   <motion.button
