@@ -43,31 +43,39 @@ export default function TestSwaraPage() {
 
       // Start pitch detection with real-time callback
       await detector.start((frequency, clarity) => {
+        // Always update display
         setCurrentFrequency(frequency);
 
-        // Calculate semitones from base
-        const semitonesFromBase = 12 * Math.log2(frequency / baseToneHz);
-        setSemitones(semitonesFromBase);
+        // Only process if we have valid frequency
+        if (frequency > 0) {
+          // Calculate semitones from base
+          const semitonesFromBase = 12 * Math.log2(frequency / baseToneHz);
+          setSemitones(semitonesFromBase);
 
-        // Update pitch history for swara classification
-        pitchHistoryRef.current = [...pitchHistoryRef.current.slice(-10), frequency];
-        setPitchHistory(pitchHistoryRef.current);
+          // Update pitch history for swara classification
+          pitchHistoryRef.current = [...pitchHistoryRef.current.slice(-10), frequency];
+          setPitchHistory(pitchHistoryRef.current);
 
-        // Classify swara
-        const { swara, confidence: conf } = classifySwara(
-          frequency,
-          baseToneHz,
-          pitchHistoryRef.current
-        );
-        setDetectedSwara(swara);
-        setConfidence(conf);
+          // Classify swara
+          const { swara, confidence: conf } = classifySwara(
+            frequency,
+            baseToneHz,
+            pitchHistoryRef.current
+          );
+          setDetectedSwara(swara);
+          setConfidence(conf);
 
-        // Store data for export
-        setRecordingData(prev => [...prev, {
-          frequency,
-          clarity,
-          timestamp: Date.now()
-        }]);
+          // Store data for export
+          setRecordingData(prev => [...prev, {
+            frequency,
+            clarity,
+            timestamp: Date.now()
+          }]);
+        } else {
+          // Reset to defaults when silent
+          setSemitones(0);
+          setConfidence(0);
+        }
       });
 
       setIsRecording(true);
@@ -147,13 +155,13 @@ export default function TestSwaraPage() {
         </div>
 
         {/* Current Detection Display */}
-        {currentFrequency && (
+        {isRecording && (
           <div className="mb-6 space-y-4">
             {/* Frequency Display */}
             <div className="p-6 rounded-xl bg-cyan-500/20 border border-cyan-500/30">
               <div className="text-sm text-cyan-300 mb-2">Current Frequency</div>
               <div className="text-4xl font-bold text-cyan-100">
-                {currentFrequency.toFixed(2)} Hz
+                {currentFrequency !== null ? currentFrequency.toFixed(2) : '0.00'} Hz
               </div>
               <div className="text-sm text-cyan-300 mt-2">
                 {semitones >= 0 ? '+' : ''}{semitones.toFixed(2)} semitones from base
