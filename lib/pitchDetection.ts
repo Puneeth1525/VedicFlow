@@ -36,8 +36,8 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // Increased threshold for better signal detection - reduced false positives
-  if (rms < 0.05) return -1;
+  // Lower threshold for better sensitivity to quieter voices
+  if (rms < 0.01) return -1;
 
   // Autocorrelation using proper method (not absolute difference)
   const correlations = new Float32Array(MAX_SAMPLES);
@@ -63,8 +63,8 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
   const minOffset = Math.floor(sampleRate / 1000); // Max 1000 Hz
 
   for (let offset = minOffset; offset < Math.min(maxOffset, MAX_SAMPLES); offset++) {
-    // Look for strong correlation peak
-    if (correlations[offset] > 0.6 &&
+    // Look for strong correlation peak (lowered from 0.6 to 0.5 for better sensitivity)
+    if (correlations[offset] > 0.5 &&
         correlations[offset] > correlations[offset - 1] &&
         correlations[offset] >= correlations[offset + 1]) {
 
@@ -80,7 +80,7 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
     }
   }
 
-  if (best_offset !== -1 && best_correlation > 0.5) {
+  if (best_offset !== -1 && best_correlation > 0.4) { // Lowered from 0.5 for better sensitivity
     const frequency = sampleRate / best_offset;
     // Filter out unrealistic frequencies
     if (frequency >= 80 && frequency <= 800) {
@@ -160,7 +160,7 @@ export class RealtimePitchDetector {
   private rafId: number | null = null;
   private buffer: Float32Array<ArrayBuffer> | null = null;
 
-  async start(onPitchDetected: (frequency: number, clarity: number) => void) {
+  async start(onPitchDetected: (frequency: number | null, clarity: number) => void) {
     this.audioContext = new AudioContext();
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 2048;
@@ -177,8 +177,11 @@ export class RealtimePitchDetector {
       this.analyser.getFloatTimeDomainData(this.buffer);
       const frequency = autoCorrelate(this.buffer, this.audioContext.sampleRate);
 
+      // Always call the callback - null when no sound detected
       if (frequency > 0) {
         onPitchDetected(frequency, 1.0);
+      } else {
+        onPitchDetected(null, 0);
       }
 
       this.rafId = requestAnimationFrame(detectPitch);
