@@ -33,6 +33,10 @@ export default function PracticePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [canSaveRecording, setCanSaveRecording] = useState(false);
+  const [lastRecordingBlob, setLastRecordingBlob] = useState<Blob | null>(null);
+  const [lastRecordingScore, setLastRecordingScore] = useState<number | null>(null);
+  const [lastRecordingDuration, setLastRecordingDuration] = useState<number>(0);
 
   const [practiceMode, setPracticeMode] = useState<'line' | 'paragraph' | 'full'>('line');
   const [selectedChapter, setSelectedChapter] = useState(1);
@@ -372,6 +376,10 @@ export default function PracticePage() {
       setSaveSuccess(false);
       setSaveError(null);
       setIsSaving(false);
+      setCanSaveRecording(false);
+      setLastRecordingBlob(null);
+      setLastRecordingScore(null);
+      setLastRecordingDuration(0);
 
       // Start media recorder for playback
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -496,9 +504,17 @@ export default function PracticePage() {
 
           audioContext.close();
 
-          // Save recording to database if we have a score
+          // Store recording data for potential save (only in Full Chant mode)
+          if (finalScore !== null && practiceMode === 'full') {
+            setLastRecordingBlob(audioBlob);
+            setLastRecordingScore(finalScore);
+            setLastRecordingDuration(recordingDuration);
+            setCanSaveRecording(true);
+          }
+
+          // Track practice time (update user stats without saving recording)
           if (finalScore !== null) {
-            await saveRecordingToDatabase(audioBlob, finalScore, recordingDuration);
+            await trackPracticeTime(recordingDuration, finalScore);
           }
         } catch (error) {
           console.error('Error analyzing audio:', error);
@@ -536,7 +552,32 @@ export default function PracticePage() {
     }
   };
 
-  // Save recording to database
+  // Track practice time without saving recording
+  const trackPracticeTime = async (durationMs: number, score: number) => {
+    if (!user?.id) return;
+
+    try {
+      // Update user stats with practice time only
+      const response = await fetch('/api/user-stats', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          durationMs,
+          score,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Practice time tracked successfully');
+      }
+    } catch (error) {
+      console.error('Error tracking practice time:', error);
+      // Don't show error to user, this is background tracking
+    }
+  };
+
+  // Save recording to database (only for Full Chant mode)
   const saveRecordingToDatabase = async (audioBlob: Blob, score: number, durationMs: number) => {
     if (!user?.id || !mantraId) {
       console.error('Missing user ID or mantra ID');
@@ -1184,6 +1225,32 @@ export default function PracticePage() {
                   </motion.div>
                 )}
               </div>
+
+              {/* Save Recording Button - Only in Full Chant mode */}
+              {canSaveRecording && practiceMode === 'full' && !saveSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 pt-4 border-t border-white/10"
+                >
+                  <p className="text-sm text-purple-300 mb-3">
+                    Save this recording to track your progress and review later
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (lastRecordingBlob && lastRecordingScore !== null) {
+                        saveRecordingToDatabase(lastRecordingBlob, lastRecordingScore, lastRecordingDuration);
+                      }
+                    }}
+                    disabled={isSaving}
+                    className="w-full px-6 py-3 rounded-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? 'Saving...' : '💾 Save Recording'}
+                  </motion.button>
+                </motion.div>
+              )}
             </div>
           </div>
 
