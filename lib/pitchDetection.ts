@@ -165,7 +165,7 @@ export class RealtimePitchDetector {
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 2048;
 
-    this.buffer = new Float32Array(new ArrayBuffer(this.analyser.fftSize * 4));
+    this.buffer = new Float32Array(this.analyser.fftSize);
 
     this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
