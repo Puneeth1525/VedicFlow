@@ -1,0 +1,97 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User stats aggregation table
+model UserStats {
+  id             String   @id @default(uuid())
+  userId         String   @unique // Clerk user ID
+  totalPractices Int      @default(0)
+  averageScore   Float    @default(0)
+  currentStreak  Int      @default(0)
+  longestStreak  Int      @default(0)
+  totalTimeMs    Int      @default(0) // Total time in milliseconds
+  lastPracticed  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Mantra definition
+model Mantra {
+  id          String            @id @default(uuid())
+  title       String
+  category    String
+  difficulty  String
+  verses      Int
+  duration    String
+  audioUrl    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  practices   Practice[]
+  mantraProgress MantraProgress[]
+}
+
+// Practice session
+model Practice {
+  id         String      @id @default(uuid())
+  userId     String      // Clerk user ID
+  mantraId   String
+  date       DateTime    @default(now())
+  durationMs Int         // Duration in milliseconds
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  mantra     Mantra      @relation(fields: [mantraId], references: [id], onDelete: Cascade)
+  recordings Recording[]
+
+  @@index([userId])
+  @@index([mantraId])
+  @@index([userId, mantraId])
+}
+
+// Recording for a practice session
+model Recording {
+  id                  String   @id @default(uuid())
+  practiceId          String
+  audioUrl            String   // Supabase storage URL
+  score               Float
+  submittedForReview  Boolean  @default(false)
+  reviewStatus        String   @default("not-submitted") // not-submitted, under-review, reviewed
+  mentorRemarks       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  practice            Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId])
+}
+
+// Per-mantra progress tracking
+model MantraProgress {
+  id             String   @id @default(uuid())
+  userId         String   // Clerk user ID
+  mantraId       String
+  totalPractices Int      @default(0)
+  averageScore   Float    @default(0)
+  lastPracticed  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  mantra         Mantra   @relation(fields: [mantraId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mantraId])
+  @@index([userId])
+  @@index([mantraId])
+}

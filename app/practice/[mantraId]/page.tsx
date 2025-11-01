@@ -1,10 +1,11 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Pause, Mic, Square, Volume2, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Mic, Square, Volume2, Info, Loader2, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import {
   RealtimePitchDetector,
   PitchData,
@@ -20,11 +21,18 @@ import { MantraData } from '@/lib/types/mantra';
 
 export default function PracticePage() {
   const params = useParams();
+  const router = useRouter();
   const mantraId = params.mantraId as string;
+  const { user } = useUser();
 
   // State for dynamically loaded mantra
   const [mantra, setMantra] = useState<MantraData | null>(null);
   const [isLoadingMantra, setIsLoadingMantra] = useState(true);
+
+  // State for saving to database
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [practiceMode, setPracticeMode] = useState<'line' | 'paragraph' | 'full'>('line');
   const [selectedChapter, setSelectedChapter] = useState(1);
@@ -360,6 +368,11 @@ export default function PracticePage() {
       setSwaraAccuracy(null);
       setPhoneticAccuracy(null);
 
+      // Reset save states
+      setSaveSuccess(false);
+      setSaveError(null);
+      setIsSaving(false);
+
       // Start media recorder for playback
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -372,9 +385,12 @@ export default function PracticePage() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const recordingDuration = Date.now() - recordingStartTimeRef.current;
 
         // Analyze the recorded audio
         setIsAnalyzing(true);
+        let finalScore: number | null = null;
+
         try {
           // Convert blob to AudioBuffer for comprehensive analysis
           const arrayBuffer = await audioBlob.arrayBuffer();
@@ -419,6 +435,7 @@ export default function PracticePage() {
             setPhoneticAccuracy(result.pronunciationAccuracy);
             setAccuracyScore(result.pronunciationAccuracy);
             setIsPronunciationReady(true);
+            finalScore = result.pronunciationAccuracy;
 
             // Convert to syllable matches for UI (pronunciation only at first)
             const matches: SwaraSyllableMatch[] = result.syllableResults.map(r => ({
@@ -443,6 +460,7 @@ export default function PracticePage() {
                 result.pronunciationAccuracy * 0.6 + result.swaraAccuracy * 0.4
               );
               setAccuracyScore(combinedScore);
+              finalScore = combinedScore;
             }
 
             console.log('Pronunciation Accuracy:', result.pronunciationAccuracy);
@@ -468,6 +486,7 @@ export default function PracticePage() {
             // No swara analysis for now - only pronunciation via Whisper AI
 
             setAccuracyScore(result.overallScore);
+            finalScore = result.overallScore;
 
             console.log('Analysis result:', result);
             }
@@ -476,6 +495,11 @@ export default function PracticePage() {
           }
 
           audioContext.close();
+
+          // Save recording to database if we have a score
+          if (finalScore !== null) {
+            await saveRecordingToDatabase(audioBlob, finalScore, recordingDuration);
+          }
         } catch (error) {
           console.error('Error analyzing audio:', error);
           alert('Error analyzing audio. Please try again.');
@@ -509,6 +533,91 @@ export default function PracticePage() {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
+    }
+  };
+
+  // Save recording to database
+  const saveRecordingToDatabase = async (audioBlob: Blob, score: number, durationMs: number) => {
+    if (!user?.id || !mantraId) {
+      console.error('Missing user ID or mantra ID');
+      setSaveError('Unable to save: missing user or mantra information');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      // 1. Upload audio to Supabase Storage via API route
+      console.log('Uploading recording to Supabase Storage...');
+      const formData = new FormData();
+      formData.append('file', audioBlob, `recording-${Date.now()}.webm`);
+
+      const uploadRes = await fetch('/api/upload-recording', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.error || 'Failed to upload recording');
+      }
+
+      const { url: audioUrl } = await uploadRes.json();
+      console.log('Audio uploaded:', audioUrl);
+
+      // 2. Create Practice session
+      console.log('Creating practice session...');
+      const practiceRes = await fetch('/api/practices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          mantraId: mantraId,
+          durationMs,
+        }),
+      });
+
+      if (!practiceRes.ok) {
+        throw new Error('Failed to create practice session');
+      }
+
+      const practice = await practiceRes.json();
+      console.log('Practice session created:', practice.id);
+
+      // 3. Create Recording entry
+      console.log('Creating recording entry...');
+      const recordingRes = await fetch('/api/recordings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          practiceId: practice.id,
+          audioUrl,
+          score,
+        }),
+      });
+
+      if (!recordingRes.ok) {
+        throw new Error('Failed to create recording entry');
+      }
+
+      const recording = await recordingRes.json();
+      console.log('Recording saved:', recording.id);
+
+      // Show success message
+      setSaveSuccess(true);
+
+      // Auto-redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save recording');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1040,6 +1149,38 @@ export default function PracticePage() {
                   >
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Analyzing your pitch...
+                  </motion.div>
+                )}
+
+                {isSaving && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center gap-2 text-cyan-400"
+                  >
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving recording...
+                  </motion.div>
+                )}
+
+                {saveSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 text-green-400 font-semibold"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    Recording saved! Redirecting to dashboard...
+                  </motion.div>
+                )}
+
+                {saveError && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center gap-2 text-red-400 text-sm"
+                  >
+                    ⚠️ {saveError}
                   </motion.div>
                 )}
               </div>

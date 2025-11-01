@@ -3,9 +3,31 @@
 import { motion } from 'framer-motion';
 import { Mic, BookOpen, TrendingUp, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 
 export default function Home() {
+  const router = useRouter();
+  const { isSignedIn, isLoaded } = useUser();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isSignedIn, isLoaded, router]);
+
+  if (!isLoaded || isSignedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white overflow-hidden">
       {/* Animated background particles */}
@@ -31,8 +53,8 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Top Right - User/Sign In */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+      {/* Top Right - Sign In */}
+      <div className="fixed top-4 right-4 z-50">
         <SignedOut>
           <SignInButton mode="modal">
             <motion.button
@@ -44,24 +66,6 @@ export default function Home() {
             </motion.button>
           </SignInButton>
         </SignedOut>
-        <SignedIn>
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-10 h-10"
-              }
-            }}
-          />
-        </SignedIn>
-        <Link href="/admin">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 rounded-lg bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 transition-all text-sm"
-          >
-            Admin
-          </motion.button>
-        </Link>
       </div>
 
       {/* Main content */}
@@ -129,7 +133,7 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 1 }}
         >
-          <Link href="/mantras">
+          <SignInButton mode="modal">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -147,7 +151,7 @@ export default function Home() {
                 </motion.span>
               </span>
             </motion.button>
-          </Link>
+          </SignInButton>
         </motion.div>
 
         {/* Swara Legend */}

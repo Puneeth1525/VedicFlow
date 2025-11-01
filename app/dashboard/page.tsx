@@ -1,106 +1,129 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSquare, X } from 'lucide-react';
-import Link from 'next/link';
+import { Play, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSquare, X } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
-import { useState } from 'react';
-
-// Mock data - replace with real data from your database
-const mockMantras = [
-  {
-    id: 'ganesha-gayatri',
-    title: 'Ganesha Gayatri Mantra',
-    category: 'Ganapati Upanishad',
-    totalPractices: 15,
-    averageScore: 87,
-    lastPracticed: '2024-01-20',
-    recordings: [
-      {
-        id: 1,
-        date: '2024-01-20',
-        score: 92,
-        duration: '1:23',
-        status: 'reviewed',
-        submittedForReview: true,
-        mentorRemarks: 'Excellent pronunciation! Your swara accuracy has improved significantly. Keep maintaining the rhythm in the second verse.'
-      },
-      {
-        id: 2,
-        date: '2024-01-18',
-        score: 85,
-        duration: '1:25',
-        status: 'reviewed',
-        submittedForReview: true,
-        mentorRemarks: 'Good effort. Work on the Udātta accent in verse 3. The overall flow is very good.'
-      },
-      {
-        id: 3,
-        date: '2024-01-15',
-        score: 83,
-        duration: '1:28',
-        status: 'not-submitted',
-        submittedForReview: false
-      },
-    ]
-  },
-  {
-    id: 'ganapathi-atharva-shirsham',
-    title: 'Ganapathi Atharva Shirsham',
-    category: 'Atharvaveda',
-    totalPractices: 8,
-    averageScore: 75,
-    lastPracticed: '2024-01-19',
-    recordings: [
-      {
-        id: 4,
-        date: '2024-01-19',
-        score: 78,
-        duration: '5:12',
-        status: 'under-review',
-        submittedForReview: true
-      },
-      {
-        id: 5,
-        date: '2024-01-16',
-        score: 72,
-        duration: '5:18',
-        status: 'reviewed',
-        submittedForReview: true,
-        mentorRemarks: 'The beginning needs more practice. Focus on breath control in longer verses. Overall structure is correct.'
-      },
-      {
-        id: 6,
-        date: '2024-01-14',
-        score: 70,
-        duration: '5:25',
-        status: 'not-submitted',
-        submittedForReview: false
-      }
-    ]
-  },
-];
-
-const overallStats = {
-  totalPractices: 23,
-  averageScore: 82,
-  streakDays: 7,
-  totalTime: '2h 15m',
-};
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import BottomNav from '@/components/BottomNav';
 
 type Recording = {
-  id: number;
-  date: string;
+  id: string;
+  practiceId: string;
+  audioUrl: string;
   score: number;
-  duration: string;
-  status: string;
   submittedForReview: boolean;
-  mentorRemarks?: string;
+  reviewStatus: string;
+  mentorRemarks?: string | null;
+  createdAt: string;
+};
+
+type Practice = {
+  id: string;
+  userId: string;
+  mantraId: string;
+  date: string;
+  durationMs: number;
+  mantra: {
+    id: string;
+    title: string;
+    category: string;
+  };
+  recordings: Recording[];
+};
+
+type MantraProgress = {
+  id: string;
+  userId: string;
+  mantraId: string;
+  totalPractices: number;
+  averageScore: number;
+  lastPracticed: string | null;
+  mantra: {
+    id: string;
+    title: string;
+    category: string;
+  };
+};
+
+type UserStats = {
+  totalPractices: number;
+  averageScore: number;
+  currentStreak: number;
+  longestStreak: number;
+  totalTimeMs: number;
+  lastPracticed: string | null;
 };
 
 export default function DashboardPage() {
   const [selectedMantra, setSelectedMantra] = useState<string | null>(null);
   const [showRemarksModal, setShowRemarksModal] = useState<Recording | null>(null);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [mantraProgress, setMantraProgress] = useState<MantraProgress[]>([]);
+  const [practices, setPractices] = useState<Practice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+
+        // Fetch user stats
+        const statsRes = await fetch('/api/user-stats');
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          setUserStats(stats);
+        }
+
+        // Fetch mantra progress
+        const progressRes = await fetch('/api/mantra-progress');
+        if (progressRes.ok) {
+          const progress = await progressRes.json();
+          setMantraProgress(progress);
+        }
+
+        // Fetch all practices
+        const practicesRes = await fetch('/api/practices');
+        if (practicesRes.ok) {
+          const allPractices = await practicesRes.json();
+          setPractices(allPractices);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  const handleSubmitForReview = async (recordingId: string) => {
+    try {
+      const res = await fetch('/api/recordings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recordingId,
+          submittedForReview: true,
+          reviewStatus: 'under-review',
+        }),
+      });
+
+      if (res.ok) {
+        // Refresh practices
+        const practicesRes = await fetch('/api/practices');
+        if (practicesRes.ok) {
+          const allPractices = await practicesRes.json();
+          setPractices(allPractices);
+        }
+        alert('Recording submitted for mentor review!');
+      }
+    } catch (error) {
+      console.error('Error submitting recording:', error);
+      alert('Failed to submit recording');
+    }
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-400 bg-green-400/10';
@@ -118,91 +141,109 @@ export default function DashboardPage() {
     return <span className="px-3 py-1 rounded-full text-xs bg-slate-400/10 text-slate-400 border border-slate-400/20">Not Submitted</span>;
   };
 
-  const handleSubmitForReview = (recordingId: number) => {
-    // TODO: Implement actual API call to submit for review
-    alert(`Recording ${recordingId} submitted for mentor review!`);
+  const formatDuration = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const formatTotalTime = (ms: number) => {
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Group practices by mantra
+  const getPracticesByMantra = (mantraId: string) => {
+    return practices.filter(p => p.mantraId === mantraId);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mb-4"></div>
+          <p className="text-purple-200">Loading your progress...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white pb-24">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
-          <div className="flex items-start gap-4">
-            <Link href="/mantras">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-2 rounded-full bg-white/5 backdrop-blur-lg border border-white/10 hover:border-purple-400/50 transition-all mt-1"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </motion.button>
-            </Link>
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                Your Progress Dashboard
-              </h1>
-              <p className="text-purple-200 mt-1 text-sm sm:text-base">Track your Vedic chanting journey</p>
-            </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              Your Progress
+            </h1>
+            <p className="text-purple-200 mt-1 text-sm sm:text-base">Track your Vedic chanting journey</p>
           </div>
 
-          <div className="mt-1">
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "w-10 h-10"
-                }
-              }}
-            />
-          </div>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-10 h-10"
+              }
+            }}
+          />
         </div>
 
         {/* Overall Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
-        >
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-purple-500/20">
-                <Mic className="w-5 h-5 text-purple-400" />
+        {userStats && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+          >
+            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <Mic className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="text-2xl font-bold">{userStats.totalPractices}</div>
               </div>
-              <div className="text-2xl font-bold">{overallStats.totalPractices}</div>
+              <div className="text-sm text-purple-200">Total Practices</div>
             </div>
-            <div className="text-sm text-purple-200">Total Practices</div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-green-500/20">
-                <TrendingUp className="w-5 h-5 text-green-400" />
+            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-green-500/20">
+                  <TrendingUp className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-2xl font-bold">{Math.round(userStats.averageScore)}%</div>
               </div>
-              <div className="text-2xl font-bold">{overallStats.averageScore}%</div>
+              <div className="text-sm text-purple-200">Average Score</div>
             </div>
-            <div className="text-sm text-purple-200">Average Score</div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-orange-500/20">
-                <Award className="w-5 h-5 text-orange-400" />
+            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-orange-500/20">
+                  <Award className="w-5 h-5 text-orange-400" />
+                </div>
+                <div className="text-2xl font-bold">{userStats.currentStreak}</div>
               </div>
-              <div className="text-2xl font-bold">{overallStats.streakDays}</div>
+              <div className="text-sm text-purple-200">Day Streak</div>
             </div>
-            <div className="text-sm text-purple-200">Day Streak</div>
-          </div>
 
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-cyan-500/20">
-                <Clock className="w-5 h-5 text-cyan-400" />
+            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-cyan-500/20">
+                  <Clock className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div className="text-2xl font-bold">{formatTotalTime(userStats.totalTimeMs)}</div>
               </div>
-              <div className="text-2xl font-bold">{overallStats.totalTime}</div>
+              <div className="text-sm text-purple-200">Total Time</div>
             </div>
-            <div className="text-sm text-purple-200">Total Time</div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Mantras Progress */}
         <motion.div
@@ -213,158 +254,168 @@ export default function DashboardPage() {
         >
           <h2 className="text-2xl font-bold mb-4">Your Mantras</h2>
 
-          {mockMantras.map((mantra, index) => (
+          {mantraProgress.length === 0 && (
             <motion.div
-              key={mantra.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-16"
             >
-              {/* Mantra Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-1">{mantra.title}</h3>
-                  <p className="text-sm text-purple-300">{mantra.category}</p>
-                </div>
-                <div className="flex gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-400">{mantra.totalPractices}</div>
-                    <div className="text-purple-200">Practices</div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${mantra.averageScore >= 85 ? 'text-green-400' : 'text-yellow-400'}`}>
-                      {mantra.averageScore}%
-                    </div>
-                    <div className="text-purple-200">Avg Score</div>
-                  </div>
-                </div>
+              <div className="p-6 rounded-full bg-purple-500/10 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                <Mic className="w-12 h-12 text-purple-400" />
               </div>
-
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm text-purple-300 mb-2">
-                  <span>Progress to Mastery</span>
-                  <span>{mantra.averageScore}%</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${mantra.averageScore}%` }}
-                    transition={{ duration: 1, delay: index * 0.2 }}
-                    className={`h-full ${mantra.averageScore >= 85 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'}`}
-                  />
-                </div>
-              </div>
-
-              {/* Toggle Recordings */}
-              <button
-                onClick={() => setSelectedMantra(selectedMantra === mantra.id ? null : mantra.id)}
-                className="text-sm text-purple-400 hover:text-purple-300 transition-colors mb-4"
-              >
-                {selectedMantra === mantra.id ? '▼ Hide' : '▶'} View {mantra.recordings.length} Recordings
-              </button>
-
-              {/* Recordings List */}
-              {selectedMantra === mantra.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3 mt-4"
+              <h3 className="text-2xl font-semibold mb-2">No practices yet</h3>
+              <p className="text-purple-300 mb-6">Start your Vedic chanting journey today!</p>
+              <Link href="/mantras">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-medium"
                 >
-                  {mantra.recordings.map((recording) => (
-                    <div
-                      key={recording.id}
-                      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/30 transition-all"
+                  Browse Mantras
+                </motion.button>
+              </Link>
+            </motion.div>
+          )}
+
+          {mantraProgress.map((progress, index) => {
+            const mantraPractices = getPracticesByMantra(progress.mantraId);
+            const allRecordings = mantraPractices.flatMap(p => p.recordings);
+
+            return (
+              <motion.div
+                key={progress.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10"
+              >
+                {/* Mantra Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold mb-1">{progress.mantra.title}</h3>
+                    <p className="text-sm text-purple-300">{progress.mantra.category}</p>
+                  </div>
+                  <div className="flex gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-400">{progress.totalPractices}</div>
+                      <div className="text-purple-200">Practices</div>
+                    </div>
+                    <div className="text-center">
+                      <div className={`text-2xl font-bold ${progress.averageScore >= 85 ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {Math.round(progress.averageScore)}%
+                      </div>
+                      <div className="text-purple-200">Avg Score</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm text-purple-300 mb-2">
+                    <span>Progress to Mastery</span>
+                    <span>{Math.round(progress.averageScore)}%</span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress.averageScore}%` }}
+                      transition={{ duration: 1, delay: index * 0.2 }}
+                      className={`h-full ${progress.averageScore >= 85 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Toggle Recordings */}
+                {allRecordings.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setSelectedMantra(selectedMantra === progress.mantraId ? null : progress.mantraId)}
+                      className="text-sm text-purple-400 hover:text-purple-300 transition-colors mb-4"
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="p-3 rounded-lg bg-purple-500/20">
-                            <Play className="w-5 h-5 text-purple-400" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex items-center gap-2 text-sm text-purple-300">
-                                <Calendar className="w-4 h-4" />
-                                {recording.date}
+                      {selectedMantra === progress.mantraId ? '▼ Hide' : '▶'} View {allRecordings.length} Recordings
+                    </button>
+
+                    {/* Recordings List */}
+                    {selectedMantra === progress.mantraId && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-3 mt-4"
+                      >
+                        {allRecordings.map((recording) => (
+                          <div
+                            key={recording.id}
+                            className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/30 transition-all"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-4 flex-1">
+                                <div className="p-3 rounded-lg bg-purple-500/20">
+                                  <Play className="w-5 h-5 text-purple-400" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className="flex items-center gap-2 text-sm text-purple-300">
+                                      <Calendar className="w-4 h-4" />
+                                      {formatDate(recording.createdAt)}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-purple-300">
+                                      <Clock className="w-4 h-4" />
+                                      {formatDuration(mantraPractices.find(p => p.id === recording.practiceId)?.durationMs || 0)}
+                                    </div>
+                                  </div>
+                                  {getStatusBadge(recording.reviewStatus)}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-purple-300">
-                                <Clock className="w-4 h-4" />
-                                {recording.duration}
+                              <div className="flex items-center gap-3">
+                                <div className={`px-4 py-2 rounded-lg font-semibold ${getScoreColor(recording.score)}`}>
+                                  {Math.round(recording.score)}%
+                                </div>
+
+                                {/* Show mentor remarks button if reviewed */}
+                                {recording.reviewStatus === 'reviewed' && recording.mentorRemarks && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setShowRemarksModal(recording)}
+                                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+                                  >
+                                    <MessageSquare className="w-4 h-4" />
+                                    Mentor Feedback
+                                  </motion.button>
+                                )}
+
+                                {/* Show submit button if not submitted */}
+                                {!recording.submittedForReview && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handleSubmitForReview(recording.id)}
+                                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+                                  >
+                                    <Send className="w-4 h-4" />
+                                    Submit for Review
+                                  </motion.button>
+                                )}
                               </div>
                             </div>
-                            {getStatusBadge(recording.status)}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className={`px-4 py-2 rounded-lg font-semibold ${getScoreColor(recording.score)}`}>
-                            {recording.score}%
-                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </>
+                )}
 
-                          {/* Show mentor remarks button if reviewed */}
-                          {recording.status === 'reviewed' && recording.mentorRemarks && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setShowRemarksModal(recording)}
-                              className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                              Mentor Feedback
-                            </motion.button>
-                          )}
-
-                          {/* Show submit button if not submitted */}
-                          {!recording.submittedForReview && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleSubmitForReview(recording.id)}
-                              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
-                            >
-                              <Send className="w-4 h-4" />
-                              Submit for Review
-                            </motion.button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-
-              {/* Last Practiced */}
-              <div className="mt-4 pt-4 border-t border-white/10 text-sm text-purple-300">
-                Last practiced: {mantra.lastPracticed}
-              </div>
-            </motion.div>
-          ))}
+                {/* Last Practiced */}
+                {progress.lastPracticed && (
+                  <div className="mt-4 pt-4 border-t border-white/10 text-sm text-purple-300">
+                    Last practiced: {formatDate(progress.lastPracticed)}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </motion.div>
-
-        {/* Empty State */}
-        {mockMantras.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16"
-          >
-            <div className="p-6 rounded-full bg-purple-500/10 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-              <Mic className="w-12 h-12 text-purple-400" />
-            </div>
-            <h3 className="text-2xl font-semibold mb-2">No practices yet</h3>
-            <p className="text-purple-300 mb-6">Start your Vedic chanting journey today!</p>
-            <Link href="/mantras">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-medium"
-              >
-                Browse Mantras
-              </motion.button>
-            </Link>
-          </motion.div>
-        )}
 
         {/* Mentor Remarks Modal */}
         <AnimatePresence>
@@ -391,7 +442,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white">Mentor Feedback</h3>
-                      <p className="text-sm text-purple-300">Recording from {showRemarksModal.date}</p>
+                      <p className="text-sm text-purple-300">Recording from {formatDate(showRemarksModal.createdAt)}</p>
                     </div>
                   </div>
                   <motion.button
@@ -409,12 +460,8 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="text-sm text-purple-300">Score</div>
                     <div className={`text-3xl font-bold ${showRemarksModal.score >= 90 ? 'text-green-400' : showRemarksModal.score >= 75 ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {showRemarksModal.score}%
+                      {Math.round(showRemarksModal.score)}%
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-4 h-4 text-purple-300" />
-                    <div className="text-purple-300">{showRemarksModal.duration}</div>
                   </div>
                 </div>
 
@@ -442,6 +489,7 @@ export default function DashboardPage() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
+                    onClick={() => window.open(showRemarksModal.audioUrl, '_blank')}
                     className="flex-1 px-6 py-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     <Play className="w-4 h-4" />
@@ -453,6 +501,8 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
       </div>
+
+      <BottomNav />
     </div>
   );
 }
