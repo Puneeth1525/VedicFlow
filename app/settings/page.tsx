@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { User, Bell, Shield, Palette } from 'lucide-react';
-import BottomNav from '@/components/BottomNav';
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -110,8 +109,6 @@ export default function SettingsPage() {
           <p className="mt-1">Made with 🕉️ for Vedic learners</p>
         </motion.div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import BottomNav from '@/components/BottomNav';
 
 // Sample mantras data - you can expand this
 const mantras = [
@@ -150,8 +149,6 @@ export default function MantrasPage() {
           </ol>
         </motion.div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

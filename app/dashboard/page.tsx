@@ -5,7 +5,8 @@ import { Play, Pause, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSqua
 import { UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import BottomNav from '@/components/BottomNav';
+import { formatRelativeTime, formatDuration } from '@/lib/format';
+import OnboardingPage from '@/app/onboarding/page';
 
 type Recording = {
   id: string;
@@ -63,11 +64,25 @@ export default function DashboardPage() {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
+
+        // First, check onboarding status
+        const userRes = await fetch('/api/user');
+        if (userRes.ok) {
+          const user = await userRes.json();
+          setOnboardingComplete(user.onboardingComplete);
+
+          // Only fetch dashboard data if onboarding is complete
+          if (!user.onboardingComplete) {
+            setLoading(false);
+            return;
+          }
+        }
 
         // Fetch user stats
         const statsRes = await fetch('/api/user-stats');
@@ -196,16 +211,6 @@ export default function DashboardPage() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const formatTotalTime = (ms: number) => {
-    const totalMinutes = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
 
   // Group practices by mantra
   const getPracticesByMantra = (mantraId: string) => {
@@ -221,6 +226,11 @@ export default function DashboardPage() {
         </div>
       </div>
     );
+  }
+
+  // Show onboarding if not complete
+  if (onboardingComplete === false) {
+    return <OnboardingPage />;
   }
 
   return (
@@ -286,7 +296,7 @@ export default function DashboardPage() {
                 <div className="p-2 rounded-lg bg-cyan-500/20">
                   <Clock className="w-5 h-5 text-cyan-400" />
                 </div>
-                <div className="text-2xl font-bold">{formatTotalTime(userStats.totalTimeMs)}</div>
+                <div className="text-2xl font-bold">{formatDuration(userStats.totalTimeMs)}</div>
               </div>
               <div className="text-sm text-purple-200">Total Time</div>
             </div>
@@ -415,7 +425,7 @@ export default function DashboardPage() {
                                   <div className="flex items-center gap-3 mb-2">
                                     <div className="flex items-center gap-2 text-sm text-purple-300">
                                       <Calendar className="w-4 h-4" />
-                                      {formatDate(recording.createdAt)}
+                                      {formatRelativeTime(recording.createdAt)}
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-purple-300">
                                       <Clock className="w-4 h-4" />
@@ -500,7 +510,7 @@ export default function DashboardPage() {
                 {/* Last Practiced */}
                 {progress.lastPracticed && (
                   <div className="mt-4 pt-4 border-t border-white/10 text-sm text-purple-300">
-                    Last practiced: {formatDate(progress.lastPracticed)}
+                    Last practiced: {formatRelativeTime(progress.lastPracticed)}
                   </div>
                 )}
               </motion.div>
@@ -533,7 +543,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white">Mentor Feedback</h3>
-                      <p className="text-sm text-purple-300">Recording from {formatDate(showRemarksModal.createdAt)}</p>
+                      <p className="text-sm text-purple-300">Recording from {formatRelativeTime(showRemarksModal.createdAt)}</p>
                     </div>
                   </div>
                   <motion.button
@@ -592,8 +602,6 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

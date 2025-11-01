@@ -1,0 +1,368 @@
+'use client';
+
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Mic, CheckCircle, Sparkles, AlertTriangle, Volume2 } from 'lucide-react';
+import { RealtimePitchDetector, calculateBasePitch, type PitchData } from '@/lib/pitchDetection';
+
+export default function OnboardingPage() {
+  const [step, setStep] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [hasRecording, setHasRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [baseToneHz, setBaseToneHz] = useState<number | null>(null);
+  const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
+  const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
+  const collectedPitchesRef = useRef<PitchData[]>([]);
+  const router = useRouter();
+
+  // Cleanup pitch detector on unmount
+  useEffect(() => {
+    return () => {
+      if (pitchDetectorRef.current) {
+        pitchDetectorRef.current.stop();
+      }
+    };
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      // Reset collected pitches
+      collectedPitchesRef.current = [];
+      setCurrentFrequency(null);
+      setBaseToneHz(null);
+
+      // Create new pitch detector
+      const detector = new RealtimePitchDetector();
+      pitchDetectorRef.current = detector;
+
+      // Start pitch detection with real-time callback
+      await detector.start((frequency, clarity) => {
+        setCurrentFrequency(frequency);
+        // Collect pitch data for later analysis
+        collectedPitchesRef.current.push({
+          frequency,
+          clarity,
+          timestamp: Date.now(),
+        });
+      });
+
+      setIsRecording(true);
+      setHasRecording(false);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      alert('Failed to start recording. Please ensure microphone permissions are granted.');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (pitchDetectorRef.current && isRecording) {
+      // Stop the pitch detector
+      pitchDetectorRef.current.stop();
+      setIsRecording(false);
+      setHasRecording(true);
+
+      // Calculate base tone from collected pitches
+      setIsProcessing(true);
+      try {
+        if (collectedPitchesRef.current.length > 0) {
+          const basePitch = calculateBasePitch(collectedPitchesRef.current);
+          setBaseToneHz(basePitch);
+        } else {
+          alert('No pitch data collected. Please try recording again with a longer "OM".');
+        }
+      } catch (error) {
+        console.error('Error calculating base tone:', error);
+        alert('Failed to calculate base tone. Please try again.');
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const completeOnboarding = async () => {
+    try {
+      setIsProcessing(true);
+
+      // Save user data with base tone
+      const response = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          onboardingComplete: true,
+          baseToneHz,
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh the page to reload dashboard with new onboarding status
+        window.location.reload();
+      } else {
+        throw new Error('Failed to complete onboarding');
+      }
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      alert('Failed to complete onboarding. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const canProceed = () => {
+    if (step === 3) {
+      return baseToneHz !== null;
+    }
+    return true;
+  };
+
+  const steps = [
+    {
+      title: 'Welcome to VedicFlo',
+      subtitle: 'Your AI-powered Vedic chanting coach',
+      content: (
+        <div className="text-center space-y-6">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring' }}
+            className="text-8xl mx-auto w-fit"
+          >
+            🕉️
+          </motion.div>
+          <p className="text-lg text-purple-200">
+            Begin your journey to master the sacred art of Vedic chanting with personalized AI feedback
+          </p>
+        </div>
+      ),
+    },
+    {
+      title: 'Important Disclaimer',
+      subtitle: 'Please read carefully',
+      content: (
+        <div className="space-y-4">
+          <div className="p-6 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-6 h-6 text-amber-400 flex-shrink-0 mt-1" />
+              <div className="space-y-2">
+                <h3 className="font-semibold text-amber-200">Not a Replacement for a Guru</h3>
+                <p className="text-sm text-purple-200 leading-relaxed">
+                  VedicFlo is designed to support your Vedic chanting learning journey through technology.
+                  However, it is NOT a replacement for learning from a qualified Guru or teacher.
+                  The sacred tradition of Vedic chanting is best learned through direct transmission from a master.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 rounded-xl bg-purple-500/10 border border-purple-500/30">
+            <h3 className="font-semibold text-purple-200 mb-2">Purpose of this App:</h3>
+            <ul className="space-y-2 text-sm text-purple-200">
+              <li className="flex gap-2">
+                <span className="text-purple-400">•</span>
+                <span>Support your personal practice between sessions with your teacher</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-purple-400">•</span>
+                <span>Provide instant feedback on pronunciation and swara accuracy</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-purple-400">•</span>
+                <span>Track your progress and identify areas for improvement</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-purple-400">•</span>
+                <span>Help you maintain consistency in your practice</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Get Ready to Excel',
+      subtitle: 'What you can achieve with VedicFlo',
+      content: (
+        <div className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-4">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 rounded-xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 border border-purple-400/30"
+            >
+              <Sparkles className="w-8 h-8 text-purple-400 mb-3" />
+              <h4 className="font-semibold mb-2">Personalized Reviews</h4>
+              <p className="text-sm text-purple-200">Get AI-powered feedback tailored to your voice and progress</p>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="p-6 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-400/30"
+            >
+              <Volume2 className="w-8 h-8 text-cyan-400 mb-3" />
+              <h4 className="font-semibold mb-2">Swara Accuracy</h4>
+              <p className="text-sm text-purple-200">Master the precise pitch variations of Vedic chanting</p>
+            </motion.div>
+          </div>
+          <div className="text-center p-6 rounded-xl bg-white/5 border border-white/10">
+            <p className="text-purple-200">
+              <span className="font-semibold text-purple-400">Pro tip:</span> Practice regularly,
+              even if just for 10 minutes a day, to see rapid improvement in your chanting skills!
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Calibrate Your Base Tone',
+      subtitle: 'Record a long "OOOMM" to personalize your experience',
+      content: (
+        <div className="space-y-6">
+          <div className="p-6 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+            <h3 className="font-semibold text-cyan-200 mb-3">Why do we need this?</h3>
+            <p className="text-sm text-purple-200 leading-relaxed mb-4">
+              To provide accurate swara (pitch) analysis, we need to know your natural base tone (Udhaatha).
+              This helps us understand your voice range and give you personalized feedback.
+            </p>
+            <div className="bg-white/5 rounded-lg p-4">
+              <h4 className="font-semibold text-white mb-2">Instructions:</h4>
+              <ol className="space-y-2 text-sm text-purple-200">
+                <li className="flex gap-2">
+                  <span className="text-cyan-400 font-bold">1.</span>
+                  <span>Take a comfortable breath</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400 font-bold">2.</span>
+                  <span>Chant a long, steady "OOOMM" in your natural, comfortable pitch</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400 font-bold">3.</span>
+                  <span>Keep the pitch constant - no ups or downs</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-400 font-bold">4.</span>
+                  <span>Make it at least 3-5 seconds long</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing}
+              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
+                isRecording
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                  : 'bg-gradient-to-br from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600'
+              } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isProcessing ? (
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              ) : (
+                <Mic className="w-12 h-12 text-white" />
+              )}
+            </motion.button>
+            <p className="text-sm text-purple-300">
+              {isProcessing
+                ? 'Analyzing your voice...'
+                : isRecording
+                ? 'Recording... Click to stop'
+                : hasRecording
+                ? 'Recording saved! Click to re-record'
+                : 'Click to start recording'}
+            </p>
+            {isRecording && currentFrequency && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
+                <Volume2 className="w-5 h-5 text-cyan-400" />
+                <span className="text-sm text-cyan-300">
+                  Current pitch: {currentFrequency.toFixed(2)} Hz
+                </span>
+              </div>
+            )}
+            {baseToneHz && !isRecording && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/20 border border-green-500/30">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-green-300">
+                  Base tone detected: {baseToneHz.toFixed(2)} Hz
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        {/* Progress bar */}
+        <div className="mb-12">
+          <div className="flex justify-between mb-2">
+            {steps.map((_, index) => (
+              <div
+                key={index}
+                className={`h-2 flex-1 mx-1 rounded-full transition-all ${
+                  index <= step ? 'bg-gradient-to-r from-purple-500 to-cyan-500' : 'bg-white/10'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-purple-300 text-center">
+            Step {step + 1} of {steps.length}
+          </p>
+        </div>
+
+        {/* Content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="mb-12"
+          >
+            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              {steps[step].title}
+            </h1>
+            <p className="text-purple-300 mb-8">{steps[step].subtitle}</p>
+            <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8">
+              {steps[step].content}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Navigation buttons */}
+        <div className="flex justify-between gap-4">
+          {step > 0 && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setStep(step - 1)}
+              disabled={isProcessing}
+              className="px-8 py-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Back
+            </motion.button>
+          )}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              if (step < steps.length - 1) {
+                setStep(step + 1);
+              } else {
+                completeOnboarding();
+              }
+            }}
+            disabled={!canProceed() || isProcessing}
+            className="ml-auto px-8 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? 'Processing...' : step === steps.length - 1 ? 'Complete Setup' : 'Continue'}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}

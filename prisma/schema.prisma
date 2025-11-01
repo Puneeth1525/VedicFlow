@@ -6,9 +6,28 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User role enum
+enum UserRole {
+  STUDENT
+  MENTOR
+  TEACHER
+}
+
+// User table for storing role and other user-specific data
+model User {
+  id                 String   @id // Clerk user ID
+  role               UserRole @default(STUDENT)
+  onboardingComplete Boolean  @default(false)
+  baseToneHz         Float?   // Udhaatha - base tone in Hz from OM recording
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([role])
+  @@index([onboardingComplete])
 }
 
 // User stats aggregation table
