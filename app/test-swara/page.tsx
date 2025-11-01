@@ -43,6 +43,14 @@ export default function TestSwaraPage() {
 
       // Start pitch detection with real-time callback
       await detector.start((frequency, clarity) => {
+        // Handle silence - reset to null when no sound detected
+        if (frequency === null) {
+          setCurrentFrequency(null);
+          setSemitones(0);
+          // Don't add to history or recording data during silence
+          return;
+        }
+
         setCurrentFrequency(frequency);
 
         // Calculate semitones from base
@@ -147,13 +155,13 @@ export default function TestSwaraPage() {
         </div>
 
         {/* Current Detection Display */}
-        {currentFrequency && (
+        {isRecording && (
           <div className="mb-6 space-y-4">
             {/* Frequency Display */}
             <div className="p-6 rounded-xl bg-cyan-500/20 border border-cyan-500/30">
               <div className="text-sm text-cyan-300 mb-2">Current Frequency</div>
               <div className="text-4xl font-bold text-cyan-100">
-                {currentFrequency.toFixed(2)} Hz
+                {currentFrequency !== null ? currentFrequency.toFixed(2) : '0.00'} Hz
               </div>
               <div className="text-sm text-cyan-300 mt-2">
                 {semitones >= 0 ? '+' : ''}{semitones.toFixed(2)} semitones from base
