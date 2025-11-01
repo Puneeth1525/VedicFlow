@@ -177,8 +177,11 @@ export class RealtimePitchDetector {
       this.analyser.getFloatTimeDomainData(this.buffer);
       const frequency = autoCorrelate(this.buffer, this.audioContext.sampleRate);
 
+      // Always call callback - use 0 when no sound detected
       if (frequency > 0) {
         onPitchDetected(frequency, 1.0);
+      } else {
+        onPitchDetected(0, 0);
       }
 
       this.rafId = requestAnimationFrame(detectPitch);
