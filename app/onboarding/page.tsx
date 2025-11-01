@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import { Mic, CheckCircle, Sparkles, AlertTriangle, Volume2 } from 'lucide-react';
 import { RealtimePitchDetector, calculateBasePitch, type PitchData } from '@/lib/pitchDetection';
+import Image from 'next/image';
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
@@ -142,12 +143,18 @@ export default function OnboardingPage() {
       content: (
         <div className="text-center space-y-6">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring' }}
-            className="text-8xl mx-auto w-fit"
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 150 }}
+            className="flex justify-center"
           >
-            🕉️
+            <Image
+              src="/logo.png"
+              alt="VedicFlo Logo"
+              width={150}
+              height={150}
+              className="drop-shadow-2xl"
+            />
           </motion.div>
           <p className="text-lg text-purple-200">
             Begin your journey to master the sacred art of Vedic chanting with personalized AI feedback

@@ -6,6 +6,7 @@ import { SignedOut, SignInButton } from '@clerk/nextjs';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
@@ -76,10 +77,26 @@ export default function Home() {
           transition={{ duration: 0.8 }}
           className="text-center mb-12"
         >
+          {/* Logo */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.1, type: 'spring', stiffness: 150 }}
+            className="flex justify-center mb-6"
+          >
+            <Image
+              src="/logo.png"
+              alt="VedicFlo Logo"
+              width={120}
+              height={120}
+              className="drop-shadow-2xl"
+            />
+          </motion.div>
+
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
             className="inline-flex items-center gap-2 mb-6"
           >
             <Sparkles className="w-8 h-8 text-purple-400" />

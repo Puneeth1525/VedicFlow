@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatRelativeTime } from '@/lib/format';
 import OnboardingPage from '@/app/onboarding/page';
+import Image from 'next/image';
 
 type Recording = {
   id: string;
@@ -238,11 +239,20 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Your Progress
-            </h1>
-            <p className="text-purple-200 mt-1 text-sm sm:text-base">Track your Vedic chanting journey</p>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo.png"
+              alt="VedicFlo Logo"
+              width={50}
+              height={50}
+              className="drop-shadow-lg"
+            />
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                Your Progress
+              </h1>
+              <p className="text-purple-200 mt-1 text-sm sm:text-base">Track your Vedic chanting journey</p>
+            </div>
           </div>
 
           <UserButton
