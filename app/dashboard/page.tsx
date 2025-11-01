@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSquare, X } from 'lucide-react';
+import { Play, Pause, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSquare, X, Trash2 } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [mantraProgress, setMantraProgress] = useState<MantraProgress[]>([]);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -123,6 +124,53 @@ export default function DashboardPage() {
       console.error('Error submitting recording:', error);
       alert('Failed to submit recording');
     }
+  };
+
+  const handleDeleteRecording = async (recordingId: string) => {
+    if (!confirm('Are you sure you want to delete this recording? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/recordings?id=${recordingId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        // Refresh all data
+        const [statsRes, progressRes, practicesRes] = await Promise.all([
+          fetch('/api/user-stats'),
+          fetch('/api/mantra-progress'),
+          fetch('/api/practices'),
+        ]);
+
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          setUserStats(stats);
+        }
+
+        if (progressRes.ok) {
+          const progress = await progressRes.json();
+          setMantraProgress(progress);
+        }
+
+        if (practicesRes.ok) {
+          const allPractices = await practicesRes.json();
+          setPractices(allPractices);
+        }
+
+        alert('Recording deleted successfully!');
+      } else {
+        throw new Error('Failed to delete recording');
+      }
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+      alert('Failed to delete recording. Please try again.');
+    }
+  };
+
+  const togglePlayer = (recordingId: string) => {
+    setPlayingRecordingId(playingRecordingId === recordingId ? null : recordingId);
   };
 
   const getScoreColor = (score: number) => {
@@ -350,9 +398,19 @@ export default function DashboardPage() {
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-4 flex-1">
-                                <div className="p-3 rounded-lg bg-purple-500/20">
-                                  <Play className="w-5 h-5 text-purple-400" />
-                                </div>
+                                {/* Play/Pause Button */}
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => togglePlayer(recording.id)}
+                                  className="p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors"
+                                >
+                                  {playingRecordingId === recording.id ? (
+                                    <Pause className="w-5 h-5 text-purple-400" />
+                                  ) : (
+                                    <Play className="w-5 h-5 text-purple-400" />
+                                  )}
+                                </motion.button>
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
                                     <div className="flex items-center gap-2 text-sm text-purple-300">
@@ -397,8 +455,41 @@ export default function DashboardPage() {
                                     Submit for Review
                                   </motion.button>
                                 )}
+
+                                {/* Delete button - always shown */}
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => handleDeleteRecording(recording.id)}
+                                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete
+                                </motion.button>
                               </div>
                             </div>
+
+                            {/* Audio Player - shown when playing */}
+                            {playingRecordingId === recording.id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-3 pt-3 border-t border-white/10"
+                              >
+                                <audio
+                                  src={recording.audioUrl}
+                                  controls
+                                  autoPlay
+                                  className="w-full"
+                                  onEnded={() => setPlayingRecordingId(null)}
+                                  style={{
+                                    height: '40px',
+                                    borderRadius: '8px',
+                                  }}
+                                />
+                              </motion.div>
+                            )}
                           </div>
                         ))}
                       </motion.div>

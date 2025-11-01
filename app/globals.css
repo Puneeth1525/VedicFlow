@@ -42,3 +42,76 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(168, 85, 247, 0.7);
 }
+
+/* Custom Audio Player Styling */
+.custom-audio-player {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 12px !important;
+  padding: 8px 12px !important;
+  box-shadow: none !important;
+}
+
+.custom-audio-player .rhap_container {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.custom-audio-player .rhap_main {
+  flex-direction: row !important;
+  align-items: center !important;
+}
+
+.custom-audio-player .rhap_controls-section {
+  margin: 0 !important;
+}
+
+.custom-audio-player .rhap_time {
+  color: rgb(216, 180, 254) !important;
+  font-size: 12px !important;
+  font-family: ui-monospace, monospace !important;
+}
+
+.custom-audio-player .rhap_progress-section {
+  flex: 1 !important;
+  margin: 0 12px !important;
+}
+
+.custom-audio-player .rhap_progress-container {
+  background: rgba(255, 255, 255, 0.1) !important;
+  height: 4px !important;
+  border-radius: 2px !important;
+}
+
+.custom-audio-player .rhap_progress-bar {
+  background: linear-gradient(to right, rgb(168, 85, 247), rgb(34, 211, 238)) !important;
+  height: 4px !important;
+  border-radius: 2px !important;
+}
+
+.custom-audio-player .rhap_progress-indicator {
+  background: linear-gradient(to right, rgb(168, 85, 247), rgb(34, 211, 238)) !important;
+  width: 12px !important;
+  height: 12px !important;
+  top: -4px !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5) !important;
+  transition: all 0.2s ease !important;
+}
+
+.custom-audio-player .rhap_progress-indicator:hover {
+  width: 16px !important;
+  height: 16px !important;
+  top: -6px !important;
+}
+
+.custom-audio-player .rhap_main-controls {
+  display: none !important;
+}
+
+.custom-audio-player .rhap_additional-controls {
+  display: none !important;
+}
+
+.custom-audio-player .rhap_volume-controls {
+  display: none !important;
+}

@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { deleteRecording as deleteRecordingFromStorage } from '@/lib/supabase';
 
 // POST create a new recording
 export async function POST(request: Request) {
@@ -155,4 +156,74 @@ async function updateMantraProgress(userId: string, mantraId: string) {
       lastPracticed,
     },
   });
+}
+
+// DELETE remove a recording
+export async function DELETE(request: Request) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const recordingId = searchParams.get('id');
+
+    if (!recordingId) {
+      return NextResponse.json(
+        { error: 'Recording ID required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify the recording belongs to the user and get the audio URL
+    const recording = await prisma.recording.findFirst({
+      where: {
+        id: recordingId,
+      },
+      include: {
+        practice: true,
+      },
+    });
+
+    if (!recording || recording.practice.userId !== userId) {
+      return NextResponse.json(
+        { error: 'Recording not found' },
+        { status: 404 }
+      );
+    }
+
+    // Extract file path from URL for Supabase Storage deletion
+    // URL format: https://...supabase.co/storage/v1/object/public/recordings/user_xxx/timestamp.webm
+    const urlParts = recording.audioUrl.split('/recordings/');
+    const filePath = urlParts.length > 1 ? urlParts[1] : null;
+
+    // Delete from database first
+    await prisma.recording.delete({
+      where: { id: recordingId },
+    });
+
+    // Delete from Supabase Storage
+    if (filePath) {
+      try {
+        await deleteRecordingFromStorage(filePath);
+        console.log('Deleted audio file from storage:', filePath);
+      } catch (error) {
+        console.error('Error deleting from storage (continuing anyway):', error);
+        // Don't fail the request if storage deletion fails
+      }
+    }
+
+    // Update mantra progress after deletion
+    await updateMantraProgress(userId, recording.practice.mantraId);
+
+    return NextResponse.json({ success: true, message: 'Recording deleted' });
+  } catch (error) {
+    console.error('Error deleting recording:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete recording' },
+      { status: 500 }
+    );
+  }
 }
