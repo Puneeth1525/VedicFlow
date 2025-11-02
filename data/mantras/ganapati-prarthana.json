@@ -1,0 +1,76 @@
+{
+  "id": "ganapati-prarthana",
+  "title": "Gaṇapati Prārthana (Ṛg Veda 2.23.1)",
+  "category": "Rig Veda",
+  "audioUrl": "",
+  "paragraphs": [
+    {
+      "id": 1,
+      "lines": [
+        {
+          "id": 1,
+          "wordBoundaries": [0, 1, 4, 6, 10, 13, 19],
+          "sanskrit": [
+            { "text": "ॐ", "swara": "udhaatha", "romanization": "om" },
+            { "text": "ग", "swara": "anudhaatha", "romanization": "ga" },
+            { "text": "णा", "swara": "anudhaatha", "romanization": "ṇā" },
+            { "text": "नां", "swara": "udhaatha", "romanization": "nāṃ" },
+            { "text": "त्वा", "swara": "udhaatha", "romanization": "tvā" },
+            { "text": "ग", "swara": "anudhaatha", "romanization": "ga" },
+            { "text": "ण", "swara": "udhaatha", "romanization": "ṇa" },
+            { "text": "प", "swara": "anudhaatha", "romanization": "pa" },
+            { "text": "तिं", "swara": "udhaatha", "romanization": "tiṃ" },
+            { "text": "ह", "swara": "swarita", "romanization": "ha" },
+            { "text": "वा", "swara": "anudhaatha", "romanization": "vā" },
+            { "text": "म", "swara": "anudhaatha", "romanization": "ma" },
+            { "text": "हे", "swara": "udhaatha", "romanization": "he" },
+            { "text": "क", "swara": "anudhaatha", "romanization": "ka" },
+            { "text": "विं", "swara": "udhaatha", "romanization": "viṃ" },
+            { "text": "क", "swara": "anudhaatha", "romanization": "ka" },
+            { "text": "वी", "swara": "anudhaatha", "romanization": "vī" },
+            { "text": "ना", "swara": "udhaatha", "romanization": "nā" },
+            { "text": "मु", "swara": "anudhaatha", "romanization": "mu" },
+            { "text": "प", "swara": "anudhaatha", "romanization": "pa" },
+            { "text": "म", "swara": "anudhaatha", "romanization": "ma" },
+            { "text": "श्र", "swara": "udhaatha", "romanization": "śra" },
+            { "text": "व", "swara": "anudhaatha", "romanization": "va" },
+            { "text": "स्त", "swara": "anudhaatha", "romanization": "sta" },
+            { "text": "मम्", "swara": "udhaatha", "romanization": "mam" }
+          ]
+        },
+        {
+          "id": 2,
+          "wordBoundaries": [0, 5, 10, 16, 17, 20, 25],
+          "sanskrit": [
+            { "text": "ज्ये", "swara": "swarita", "romanization": "jye" },
+            { "text": "ष्ठ", "swara": "anudhaatha", "romanization": "ṣṭha" },
+            { "text": "रा", "swara": "anudhaatha", "romanization": "rā" },
+            { "text": "जं", "swara": "udhaatha", "romanization": "jaṃ" },
+            { "text": "ब्र", "swara": "swarita", "romanization": "bra" },
+            { "text": "ह्म", "swara": "anudhaatha", "romanization": "hma" },
+            { "text": "णां", "swara": "udhaatha", "romanization": "ṇāṃ" },
+            { "text": "ब्र", "swara": "anudhaatha", "romanization": "bra" },
+            { "text": "ह्म", "swara": "anudhaatha", "romanization": "hma" },
+            { "text": "ण", "swara": "udhaatha", "romanization": "ṇa" },
+            { "text": "स्प", "swara": "anudhaatha", "romanization": "spa" },
+            { "text": "त", "swara": "udhaatha", "romanization": "ta" },
+            { "text": "आ", "swara": "swarita", "romanization": "ā" },
+            { "text": "नः", "swara": "udhaatha", "romanization": "naḥ" },
+            { "text": "शृ", "swara": "anudhaatha", "romanization": "śṛ" },
+            { "text": "ण्व", "swara": "anudhaatha", "romanization": "ṇva" },
+            { "text": "न्नू", "swara": "udhaatha", "romanization": "nnū" },
+            { "text": "ति", "swara": "anudhaatha", "romanization": "ti" },
+            { "text": "भि", "swara": "anudhaatha", "romanization": "bhi" },
+            { "text": "स्सी", "swara": "udhaatha", "romanization": "ssī" },
+            { "text": "द", "swara": "anudhaatha", "romanization": "da" },
+            { "text": "सा", "swara": "udhaatha", "romanization": "sā" },
+            { "text": "द", "swara": "anudhaatha", "romanization": "da" },
+            { "text": "नम्", "swara": "udhaatha", "romanization": "nam" },
+            { "text": "स्वा", "swara": "anudhaatha", "romanization": "svā" },
+            { "text": "हा", "swara": "dheerga", "romanization": "hā" }
+          ]
+        }
+      ]
+    }
+  ]
+}
