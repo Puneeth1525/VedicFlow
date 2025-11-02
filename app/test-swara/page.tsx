@@ -315,7 +315,7 @@ export default function TestSwaraPage() {
           <h3 className="font-semibold mb-3">How to Use</h3>
           <ol className="space-y-2 text-sm text-cyan-200">
             <li>1. Set your base tone from your onboarding calibration</li>
-            <li>2. Click "Start Testing" and chant at different pitches</li>
+            <li>2. Click &quot;Start Testing&quot; and chant at different pitches</li>
             <li>3. Try going low (anudātta), staying at base (udātta), going high (swarita), and very high (dīrgha)</li>
             <li>4. Watch the real-time frequency, semitone offset, and swara detection</li>
             <li>5. Export the data to analyze the patterns and adjust thresholds if needed</li>

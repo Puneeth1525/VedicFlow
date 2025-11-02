@@ -9,7 +9,6 @@ import Image from 'next/image';
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [baseToneHz, setBaseToneHz] = useState<number | null>(null);
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
@@ -54,7 +53,6 @@ export default function OnboardingPage() {
       });
 
       setIsRecording(true);
-      setHasRecording(false);
     } catch (error) {
       console.error('Error starting recording:', error);
       alert('Failed to start recording. Please ensure microphone permissions are granted.');
@@ -66,7 +64,6 @@ export default function OnboardingPage() {
       // Stop the pitch detector
       pitchDetectorRef.current.stop();
       setIsRecording(false);
-      setHasRecording(true);
 
       // Calculate base tone from collected pitches
       setIsProcessing(true);
@@ -82,7 +79,6 @@ export default function OnboardingPage() {
             // Move to next recording
             setRecordingNumber(recordingNumber + 1);
             setBaseToneHz(null);
-            setHasRecording(false);
           } else {
             // All 3 recordings done - calculate average
             const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
