@@ -4,21 +4,48 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Download, BarChart3 } from 'lucide-react';
 import { RealtimePitchDetector, type PitchData, classifySwara } from '@/lib/pitchDetection';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
-type SwaraType = 'anudhaata' | 'udhaata' | 'swarita' | 'dheerga';
+type SwaraType = 'anudhaatha' | 'udhaatha' | 'swarita' | 'dheerga';
 
 export default function TestSwaraPage() {
+  const router = useRouter();
   const [isRecording, setIsRecording] = useState(false);
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
-  const [baseToneHz, setBaseToneHz] = useState<number>(150); // Default base tone
-  const [detectedSwara, setDetectedSwara] = useState<SwaraType>('udhaata');
+  const [baseToneHz, setBaseToneHz] = useState<number | null>(null);
+  const [detectedSwara, setDetectedSwara] = useState<SwaraType>('udhaatha');
   const [confidence, setConfidence] = useState<number>(0);
   const [semitones, setSemitones] = useState<number>(0);
   const [pitchHistory, setPitchHistory] = useState<number[]>([]);
   const [recordingData, setRecordingData] = useState<PitchData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const pitchHistoryRef = useRef<number[]>([]);
+
+  // Fetch user's base tone from database
+  useEffect(() => {
+    const fetchBaseTone = async () => {
+      try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.baseToneHz) {
+            setBaseToneHz(userData.baseToneHz);
+          } else {
+            // No base tone set, redirect to onboarding
+            router.push('/onboarding');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching base tone:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBaseTone();
+  }, [router]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -59,8 +86,7 @@ export default function TestSwaraPage() {
           // Classify swara
           const { swara, confidence: conf } = classifySwara(
             frequency,
-            baseToneHz,
-            pitchHistoryRef.current
+            baseToneHz
           );
           setDetectedSwara(swara);
           setConfidence(conf);
@@ -113,8 +139,8 @@ export default function TestSwaraPage() {
 
   const getSwaraColor = (swara: SwaraType) => {
     switch (swara) {
-      case 'anudhaata': return 'bg-blue-500';
-      case 'udhaata': return 'bg-green-500';
+      case 'anudhaatha': return 'bg-blue-500';
+      case 'udhaatha': return 'bg-green-500';
       case 'swarita': return 'bg-orange-500';
       case 'dheerga': return 'bg-red-500';
     }
@@ -122,12 +148,27 @@ export default function TestSwaraPage() {
 
   const getSwaraLabel = (swara: SwaraType) => {
     switch (swara) {
-      case 'anudhaata': return 'Anudātta (Low)';
-      case 'udhaata': return 'Udātta (Base)';
+      case 'anudhaatha': return 'Anudhaatha (Low)';
+      case 'udhaatha': return 'Udhaatha (Base)';
       case 'swarita': return 'Swarita (High)';
-      case 'dheerga': return 'Dīrgha (Very High)';
+      case 'dheerga': return 'Dheerga (Very High)';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-purple-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!baseToneHz) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white pb-20">
@@ -138,19 +179,12 @@ export default function TestSwaraPage() {
           <p className="text-purple-300">Test and calibrate swara detection thresholds</p>
         </div>
 
-        {/* Base Tone Configuration */}
+        {/* Base Tone Display */}
         <div className="mb-6 p-6 rounded-xl bg-white/5 border border-white/10">
-          <label className="block text-sm font-medium mb-3">Base Tone (Udātta) - Hz</label>
-          <input
-            type="number"
-            value={baseToneHz}
-            onChange={(e) => setBaseToneHz(Number(e.target.value))}
-            disabled={isRecording}
-            className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white disabled:opacity-50"
-            step="0.1"
-          />
+          <label className="block text-sm font-medium mb-3">Base Tone (Udhaatha) - Hz</label>
+          <div className="text-2xl font-bold text-purple-400">{baseToneHz.toFixed(1)} Hz</div>
           <p className="text-xs text-purple-300 mt-2">
-            Set your base tone from onboarding, or use a default value
+            Your base tone from onboarding calibration
           </p>
         </div>
 
@@ -282,30 +316,30 @@ export default function TestSwaraPage() {
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500" />
-                Anudātta (Low)
+                Anudhaatha (Low)
               </span>
-              <span className="font-mono">&lt; -1.5 semitones</span>
+              <span className="font-mono">&lt; -0.5 semitones</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" />
-                Udātta (Base)
+                Udhaatha (Base)
               </span>
-              <span className="font-mono">-1.5 to +1.5 semitones</span>
+              <span className="font-mono">-0.5 to +0.8 semitones</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-orange-500" />
                 Swarita (High)
               </span>
-              <span className="font-mono">+1.5 to +3 semitones</span>
+              <span className="font-mono">+0.8 to +2.0 semitones</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500" />
-                Dīrgha (Very High)
+                Dheerga (Very High)
               </span>
-              <span className="font-mono">&gt; +3 semitones</span>
+              <span className="font-mono">+2.0 to +4.0 semitones</span>
             </div>
           </div>
         </div>
@@ -316,7 +350,7 @@ export default function TestSwaraPage() {
           <ol className="space-y-2 text-sm text-cyan-200">
             <li>1. Set your base tone from your onboarding calibration</li>
             <li>2. Click &quot;Start Testing&quot; and chant at different pitches</li>
-            <li>3. Try going low (anudātta), staying at base (udātta), going high (swarita), and very high (dīrgha)</li>
+            <li>3. Try going low (anudhaatha), staying at base (udhaatha), going high (swarita), and very high (dheerga)</li>
             <li>4. Watch the real-time frequency, semitone offset, and swara detection</li>
             <li>5. Export the data to analyze the patterns and adjust thresholds if needed</li>
           </ol>

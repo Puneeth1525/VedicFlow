@@ -3,7 +3,7 @@
  * Uses autocorrelation algorithm for pitch detection from audio
  */
 
-export type SwaraType = 'anudhaata' | 'udhaata' | 'swarita' | 'dheerga';
+export type SwaraType = 'anudhaatha' | 'udhaatha' | 'swarita' | 'dheerga';
 
 export interface PitchData {
   frequency: number;
@@ -411,45 +411,34 @@ export function calculateBasePitch(pitchData: PitchData[]): number {
 
 /**
  * Classify swara based on pitch relative to base pitch
- * Using relative pitch movement to determine swara type
+ * Using relative pitch thresholds to determine swara type
  */
 export function classifySwara(
   currentFreq: number,
-  basePitch: number,
-  pitchHistory: number[] = []
+  basePitch: number
 ): { swara: SwaraType; confidence: number } {
   // Calculate semitones from base
   const semitones = 12 * Math.log2(currentFreq / basePitch);
-
-  // Calculate pitch movement (derivative)
-  const isRising = pitchHistory.length >= 2 &&
-    currentFreq > pitchHistory[pitchHistory.length - 1] &&
-    currentFreq > pitchHistory[pitchHistory.length - 2];
-
-  const isProlonged = pitchHistory.length >= 3 &&
-    pitchHistory.slice(-3).every((f, i, arr) =>
-      i === 0 || Math.abs(f - arr[i-1]) < 5 // Stable pitch
-    );
 
   // Classification logic based on Vedic swara rules
   let swara: SwaraType;
   let confidence: number;
 
-  if (semitones < -1.5) {
-    // Significantly lower than base = Anudātta (low pitch)
-    swara = 'anudhaata';
+  if (semitones < -0.5) {
+    // Significantly lower than base = Anudhaatha (low pitch)
+    swara = 'anudhaatha';
     confidence = Math.min(95, 70 + Math.abs(semitones) * 10);
-  } else if (semitones > 1.5 && isRising && isProlonged) {
-    // Rising and prolonged = Dīrgha Swarita
+  } else if (semitones >= 2.0 && semitones <= 4.0) {
+    // High and prolonged = Dheerga Swarita
     swara = 'dheerga';
-    confidence = Math.min(95, 75 + semitones * 5);
-  } else if (semitones > 1.5 && isRising) {
+    confidence = Math.min(95, 75 + (semitones - 2) * 5);
+  } else if (semitones >= 0.8 && semitones < 2.0) {
     // Rising pitch = Swarita
     swara = 'swarita';
     confidence = Math.min(90, 70 + semitones * 8);
   } else {
-    // Around base pitch = Udātta (stable/base)
-    swara = 'udhaata';
+    // Around base pitch = Udhaatha (stable/base)
+    swara = 'udhaatha';
     confidence = Math.min(90, 80 - Math.abs(semitones) * 5);
   }
 
@@ -496,25 +485,25 @@ function calculateRelativeSwaras(pitchData: PitchData[]): Array<{ swara: SwaraTy
   const avgSemitones = relativePitches.reduce((sum, p) => sum + p.semitones, 0) / relativePitches.length;
 
   // Classify into swara based on relative position
-  // anudātta = low (< -1 semitones from base)
-  // udātta = base (-1 to +1 semitones)
-  // swarita = high (+1 to +3 semitones)
-  // dheerga = very high (> +3 semitones) + prolonged
+  // anudhaatha = low (< -0.5 semitones from base)
+  // udhaatha = base (-0.5 to +0.8 semitones)
+  // swarita = high (+0.8 to +2 semitones)
+  // dheerga = very high (+2 to +4 semitones)
 
   let swara: SwaraType;
   let confidence = 80;
 
-  if (avgSemitones < -1) {
-    swara = 'anudhaata';
+  if (avgSemitones < -0.5) {
+    swara = 'anudhaatha';
     confidence = Math.min(95, 80 + Math.abs(avgSemitones) * 5);
-  } else if (avgSemitones > 3) {
+  } else if (avgSemitones >= 2.0 && avgSemitones <= 4.0) {
     swara = 'dheerga';
-    confidence = Math.min(95, 80 + (avgSemitones - 3) * 5);
-  } else if (avgSemitones > 1) {
+    confidence = Math.min(95, 80 + (avgSemitones - 2) * 5);
+  } else if (avgSemitones >= 0.8 && avgSemitones < 2.0) {
     swara = 'swarita';
-    confidence = Math.min(95, 80 + (avgSemitones - 1) * 5);
+    confidence = Math.min(95, 80 + (avgSemitones - 0.8) * 5);
   } else {
-    swara = 'udhaata';
+    swara = 'udhaatha';
     confidence = Math.min(95, 80 - Math.abs(avgSemitones) * 5);
   }
 
@@ -571,7 +560,7 @@ export function analyzeSwaraAccuracy(
       syllableMatches.push({
         syllableIndex: index,
         expectedSwara: syllable.swara,
-        detectedSwara: 'udhaata',
+        detectedSwara: 'udhaatha',
         confidence: 0,
         accuracy: 'poor',
         semitonesDiff: 999,
@@ -587,14 +576,14 @@ export function analyzeSwaraAccuracy(
 
     // Detect which swara the user actually sang
     let detectedSwara: SwaraType;
-    if (relativeSemitones < -1) {
-      detectedSwara = 'anudhaata';
-    } else if (relativeSemitones > 3) {
+    if (relativeSemitones < -0.5) {
+      detectedSwara = 'anudhaatha';
+    } else if (relativeSemitones >= 2.0 && relativeSemitones <= 4.0) {
       detectedSwara = 'dheerga';
-    } else if (relativeSemitones > 1) {
+    } else if (relativeSemitones >= 0.8 && relativeSemitones < 2.0) {
       detectedSwara = 'swarita';
     } else {
-      detectedSwara = 'udhaata';
+      detectedSwara = 'udhaatha';
     }
 
     // Score based on swara matching (did they hit the right note?)
@@ -660,9 +649,9 @@ export function analyzeSwaraAccuracy(
  */
 function getSwaraExpectedSemitones(swara: SwaraType): number {
   switch (swara) {
-    case 'anudhaata': return -2;  // Low note
-    case 'udhaata': return 0;      // Base note
-    case 'swarita': return 2;      // High note
-    case 'dheerga': return 4;      // Very high note
+    case 'anudhaatha': return -1;    // Low note
+    case 'udhaatha': return 0;       // Base note
+    case 'swarita': return 1.4;      // High note (middle of 0.8-2.0)
+    case 'dheerga': return 3;        // Very high note (middle of 2-4)
   }
 }
