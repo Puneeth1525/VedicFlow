@@ -21,9 +21,9 @@ export default function WaitingForApprovalPage() {
         if (response.ok) {
           const userData = await response.json();
           if (userData.approved) {
-            // User has been approved! Redirect to home or onboarding
+            // User has been approved! Redirect to dashboard or onboarding
             if (userData.onboardingComplete) {
-              router.push('/home');
+              router.push('/dashboard');
             } else {
               router.push('/onboarding');
             }
