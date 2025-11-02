@@ -31,24 +31,40 @@ async function main() {
 
     for (const clerkUser of clerkUsers.data) {
       try {
+        // Get primary email
+        const primaryEmail = clerkUser.emailAddresses.find(
+          email => email.id === clerkUser.primaryEmailAddressId
+        );
+        const emailAddress = primaryEmail?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress;
+
         // Check if user already exists
         const existingUser = await prisma.user.findUnique({
           where: { id: clerkUser.id },
         });
 
         if (existingUser) {
-          console.log(`✓ User ${clerkUser.id} already exists`);
+          // Update email and approved status for existing users
+          await prisma.user.update({
+            where: { id: clerkUser.id },
+            data: {
+              email: emailAddress,
+              approved: true, // Approve existing users
+            },
+          });
+          console.log(`✓ Updated user ${clerkUser.id} - ${emailAddress} (approved: true)`);
           existing++;
         } else {
           // Create user in database
           await prisma.user.create({
             data: {
               id: clerkUser.id,
+              email: emailAddress,
               role: 'STUDENT',
+              approved: false,
               onboardingComplete: false,
             },
           });
-          console.log(`✅ Created user ${clerkUser.id}`);
+          console.log(`✅ Created user ${clerkUser.id} - ${emailAddress}`);
           created++;
         }
       } catch (error) {
