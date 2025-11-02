@@ -22,6 +22,7 @@ export async function GET() {
         data: {
           id: userId,
           role: 'STUDENT',
+          approved: false,
           onboardingComplete: false,
         },
       });
@@ -59,6 +60,7 @@ export async function PATCH(request: Request) {
         data: {
           id: userId,
           role: role || 'STUDENT',
+          approved: false,
           onboardingComplete: onboardingComplete || false,
           baseToneHz,
         },

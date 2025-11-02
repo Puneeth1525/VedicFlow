@@ -64,11 +64,12 @@ export async function POST(req: Request) {
           id,
           email: emailAddress,
           role: 'STUDENT', // Default role
+          approved: false, // Requires admin approval
           onboardingComplete: false,
         },
       });
 
-      console.log(`✅ User ${id} (${emailAddress}) created in database via webhook`);
+      console.log(`✅ User ${id} (${emailAddress}) created in database via webhook (pending approval)`);
     } catch (error) {
       console.error('Error creating user in database:', error);
       return new Response('Error creating user', { status: 500 });

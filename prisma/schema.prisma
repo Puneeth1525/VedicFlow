@@ -23,12 +23,14 @@ model User {
   id                 String   @id // Clerk user ID
   email              String?  // User's email from Clerk
   role               UserRole @default(STUDENT)
+  approved           Boolean  @default(false) // Admin approval required for new users
   onboardingComplete Boolean  @default(false)
   baseToneHz         Float?   // Udhaatha - base tone in Hz from OM recording
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   @@index([role])
+  @@index([approved])
   @@index([onboardingComplete])
   @@index([email])
 }
