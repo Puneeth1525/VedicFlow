@@ -10,8 +10,8 @@ export interface BaselinePitch {
   frequency: number;      // Median pitch (Udātta baseline)
   confidence: number;     // Confidence in baseline detection
   semitoneRange: {        // Expected range for each swara
-    anudhaata: [number, number];
-    udhaata: [number, number];
+    anudhaatha: [number, number];
+    udhaatha: [number, number];
     swarita: [number, number];
     dheerga: [number, number];
   };
