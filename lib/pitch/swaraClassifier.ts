@@ -42,6 +42,31 @@ export class VedicSwaraClassifier {
   private baselinePitch: BaselinePitch | null = null;
 
   /**
+   * Set a pre-determined baseline (e.g., from user's onboarding)
+   */
+  setBaseline(frequency: number): BaselinePitch {
+    const avgConfidence = 0.95; // High confidence since it's user's personal baseline
+
+    // Define semitone ranges for each swara (more lenient)
+    const semitoneRange = {
+      anudhaatha: [-6.0, -0.5] as [number, number],    // Any note below udātta
+      udhaatha: [-0.5, 0.5] as [number, number],        // Within ±0.5 semitones
+      swarita: [0.5, 6.0] as [number, number],         // Any note above udātta
+      dheerga: [0.5, 6.0] as [number, number]          // Same as swarita (distinguished by duration)
+    };
+
+    const baseline: BaselinePitch = {
+      frequency,
+      confidence: avgConfidence,
+      semitoneRange
+    };
+
+    this.baselinePitch = baseline;
+
+    return baseline;
+  }
+
+  /**
    * Detect the user's baseline pitch (Udātta) from the audio
    * Find syllables marked as udātta and use their average pitch as reference
    */
@@ -152,26 +177,27 @@ export class VedicSwaraClassifier {
 
     console.log(`   🔍 Duration: ${duration.toFixed(3)}s (normal: ${normalDuration.toFixed(3)}s, ratio: ${(duration/normalDuration).toFixed(2)}x)`);
 
-    // Optimized thresholds based on real chanting data:
-    // - Udātta range: ±1.3 ST (accounts for natural variation across udātta syllables)
-    // - Anudātta/Swarita need to be clearly outside this range
-    if (semitones < -1.3) {
+    // Thresholds aligned with user requirements:
+    // - Anudātta: < -0.5 ST (below baseline)
+    // - Udātta: -0.5 to +0.8 ST (at baseline with natural variation)
+    // - Swarita: +0.8 to +2.0 ST (rising pitch)
+    // - Dheerga: +2.0 to +4.0 ST (very high pitch)
+    if (semitones < -0.5) {
       // Below baseline = anudātta (went clearly down)
       swara = 'anudhaatha';
       idealDeviation = semitones;  // Use actual deviation as ideal
-    } else if (semitones >= -1.3 && semitones <= 1.3) {
+    } else if (semitones >= -0.5 && semitones <= 0.8) {
       // At baseline = udātta (stable pitch with natural variation)
       swara = 'udhaatha';
       idealDeviation = 0;
+    } else if (semitones > 0.8 && semitones <= 2.0) {
+      // Rising pitch = swarita
+      swara = 'swarita';
+      idealDeviation = semitones;  // Use actual deviation as ideal
     } else {
-      // Above baseline = swarita or dheerga (went clearly up)
-      // Dheerga swarita is distinguished by higher pitch (>2.2 semitones)
-      if (semitones > 2.2) {
-        swara = 'dheerga';
-        console.log(`   ⏱️ High pitch (${semitones.toFixed(2)} ST) → dheerga`);
-      } else {
-        swara = 'swarita';
-      }
+      // Very high pitch = dheerga (>2.0 semitones)
+      swara = 'dheerga';
+      console.log(`   ⏱️ High pitch (${semitones.toFixed(2)} ST) → dheerga`);
       idealDeviation = semitones;  // Use actual deviation as ideal
     }
 
@@ -228,8 +254,13 @@ export class VedicSwaraClassifier {
       text?: string;
     }>
   ): SyllableSwara[] {
-    // Always detect baseline using udātta syllables for accurate reference
-    this.detectBaseline(contour, syllables);
+    // Only detect baseline if not already set (e.g., from user's onboarding)
+    if (!this.baselinePitch) {
+      console.log('⚠️ No baseline set, detecting from recording...');
+      this.detectBaseline(contour, syllables);
+    } else {
+      console.log(`✅ Using existing baseline: ${this.baselinePitch.frequency.toFixed(1)} Hz (confidence: ${(this.baselinePitch.confidence * 100).toFixed(1)}%)`);
+    }
 
     const results: SyllableSwara[] = [];
     const normalDuration = 0.3; // Approximate syllable duration in seconds

@@ -29,6 +29,9 @@ export default function PracticePage() {
   const [mantra, setMantra] = useState<MantraData | null>(null);
   const [isLoadingMantra, setIsLoadingMantra] = useState(true);
 
+  // State for user's personal baseline
+  const [userBaseToneHz, setUserBaseToneHz] = useState<number | null>(null);
+
   // State for saving to database
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -84,6 +87,28 @@ export default function PracticePage() {
 
     loadMantraData();
   }, [mantraId]);
+
+  // Fetch user's personal baseline from onboarding
+  useEffect(() => {
+    const fetchUserBaseTone = async () => {
+      try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.baseToneHz) {
+            setUserBaseToneHz(userData.baseToneHz);
+            console.log(`🎯 User's personal baseline loaded: ${userData.baseToneHz.toFixed(1)} Hz`);
+          } else {
+            console.warn('⚠️ User has no baseline set. Swara detection will use recording baseline.');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user baseline:', error);
+      }
+    };
+
+    fetchUserBaseTone();
+  }, []);
 
   // Helper functions to handle hierarchical structure
   const hasChapters = () => !!mantra?.chapters;
@@ -434,7 +459,8 @@ export default function PracticePage() {
               referenceAudioBuffer,
               displayLines[0]?.audioStartTime,
               displayLines[displayLines.length - 1]?.audioEndTime,
-              audioBlob  // Pass the blob for speech recognition
+              audioBlob,  // Pass the blob for speech recognition
+              userBaseToneHz || undefined  // Pass user's personal baseline
             );
 
             console.log('Comprehensive analysis result:', result);
@@ -675,7 +701,7 @@ export default function PracticePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white pb-24">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

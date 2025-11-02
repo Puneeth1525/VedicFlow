@@ -1,13 +1,10 @@
 /**
  * Syllable Analyzer using Whisper AI for pronunciation verification
- * AND ML-based pitch detection for swara analysis
+ * AND simple autocorrelation-based pitch detection for swara analysis
  */
 
-import { SwaraType, SyllableWithSwara } from './pitchDetection';
+import { SwaraType, SyllableWithSwara, classifySwara } from './pitchDetection';
 import { transcribeAudioToText, calculatePhoneticSimilarity } from './speechRecognition';
-import { MLPitchDetector } from './pitch/crepePitchDetector';
-import { VedicSwaraClassifier } from './pitch/swaraClassifier';
-import { SyllableSegmenter } from './pitch/syllableSegmentation';
 
 export interface SyllableAnalysisResult {
   syllableIndex: number;
@@ -47,7 +44,8 @@ export async function analyzeMantraChanting(
   referenceAudioBuffer?: AudioBuffer,
   verseStartTime?: number,
   verseEndTime?: number,
-  userAudioBlob?: Blob
+  userAudioBlob?: Blob,
+  userBaseToneHz?: number  // User's personal baseline from onboarding
 ): Promise<ComprehensiveAnalysisResult> {
 
   console.log('\n🎯 Starting Whisper-based pronunciation analysis...');
@@ -84,7 +82,7 @@ export async function analyzeMantraChanting(
   let swaraResults: SyllableAnalysisResult[] = [];
 
   try {
-    swaraResults = await analyzeSwaras(userAudioBuffer, syllables);
+    swaraResults = await analyzeSwaras(userAudioBuffer, syllables, userBaseToneHz);
     console.log(`✅ Swara analysis complete`);
   } catch (error) {
     console.error('⚠️ Swara detection failed:', error);
@@ -249,58 +247,234 @@ function matchIndividualAksharas(
 }
 
 /**
- * Analyze swaras using ML-based pitch detection
+ * Analyze swaras using simple autocorrelation-based pitch detection
+ * Same reliable method used in test-swara page
  */
 async function analyzeSwaras(
   audioBuffer: AudioBuffer,
-  syllables: SyllableWithSwara[]
+  syllables: SyllableWithSwara[],
+  userBaseToneHz?: number
 ): Promise<SyllableAnalysisResult[]> {
-  // Initialize detectors
-  const pitchDetector = new MLPitchDetector({
-    sampleRate: audioBuffer.sampleRate
-  });
-  const swaraClassifier = new VedicSwaraClassifier();
-  const segmenter = new SyllableSegmenter();
 
-  // Step 1: Extract pitch contour
-  const contour = await pitchDetector.extractPitchContour(audioBuffer);
+  if (!userBaseToneHz) {
+    console.warn('⚠️ No user baseline provided, cannot analyze swaras accurately');
+    // Return neutral results
+    return syllables.map((s, i) => ({
+      syllableIndex: i,
+      expectedText: s.text,
+      transcribedText: s.text,
+      expectedSwara: s.swara,
+      pronunciationScore: 100,
+      pronunciationMatch: true,
+      detectedSwara: 'udhaatha' as SwaraType,
+      swaraScore: 0,
+      swaraMatch: false,
+      overallScore: 0,
+      accuracy: 'poor' as const
+    }));
+  }
 
-  // Step 2: Smooth the contour
-  const smoothedContour = pitchDetector.smoothPitchContour(contour, 5);
+  console.log(`🎯 Analyzing swaras using user's baseline: ${userBaseToneHz.toFixed(1)} Hz`);
 
-  // Step 3: Detect baseline (Udātta)
-  const baseline = swaraClassifier.detectBaseline(smoothedContour);
-  console.log(`🎯 Baseline frequency: ${baseline.frequency.toFixed(1)} Hz`);
+  const sampleRate = audioBuffer.sampleRate;
+  const audioData = audioBuffer.getChannelData(0);
 
-  // Step 4: Segment syllables
-  const segments = await segmenter.segmentBySyllables(audioBuffer, syllables);
+  // Extract pitches using simple autocorrelation (same as test-swara)
+  const pitches = extractPitchesFromAudio(audioData, sampleRate);
 
-  // Step 5: Analyze each syllable's swara
-  const swaraAnalysis = swaraClassifier.analyzeSyllableSwaras(
-    smoothedContour,
-    segments.map(seg => ({
-      index: seg.index,
-      startTime: seg.startTime,
-      endTime: seg.endTime,
-      expectedSwara: seg.expectedSwara as SwaraType,
-      text: seg.text  // Add syllable text for better logging
-    }))
-  );
+  console.log(`🎵 Extracted ${pitches.length} pitch frames from audio`);
 
-  // Step 6: Convert to SyllableAnalysisResult format
-  return swaraAnalysis.map(result => ({
-    syllableIndex: result.syllableIndex,
-    expectedText: syllables[result.syllableIndex].text,
-    transcribedText: syllables[result.syllableIndex].text,
-    expectedSwara: result.expectedSwara,
-    pronunciationScore: 100,  // Not analyzed in swara-only mode
-    pronunciationMatch: true,
-    detectedSwara: result.detection.swara,
-    swaraScore: result.score,
-    swaraMatch: result.match,
-    overallScore: result.score,
-    accuracy: result.accuracy
-  }));
+  // Detect voice activity to find actual speech region
+  const voiceRegion = detectVoiceActivity(pitches);
+  console.log(`🎤 Voice activity: ${voiceRegion.start.toFixed(2)}s to ${voiceRegion.end.toFixed(2)}s`);
+
+  // Calculate syllable durations (uniform for now, but within voice region)
+  const voiceDuration = voiceRegion.end - voiceRegion.start;
+  const syllableDuration = voiceDuration / syllables.length;
+
+  const results: SyllableAnalysisResult[] = [];
+
+  for (let i = 0; i < syllables.length; i++) {
+    const syllable = syllables[i];
+    const startTime = voiceRegion.start + (i * syllableDuration);
+    const endTime = startTime + syllableDuration;
+
+    // Get pitches within this syllable's time window
+    const syllablePitches = pitches.filter(p =>
+      p.time >= startTime && p.time < endTime && p.frequency > 0
+    );
+
+    if (syllablePitches.length === 0) {
+      // No valid pitch detected
+      console.log(`⚠️ [${syllable.text}] No pitch detected`);
+      results.push({
+        syllableIndex: i,
+        expectedText: syllable.text,
+        transcribedText: syllable.text,
+        expectedSwara: syllable.swara,
+        pronunciationScore: 100,
+        pronunciationMatch: true,
+        detectedSwara: 'udhaatha' as SwaraType,
+        swaraScore: 0,
+        swaraMatch: false,
+        overallScore: 0,
+        accuracy: 'poor' as const
+      });
+      continue;
+    }
+
+    // Calculate average frequency for this syllable
+    const avgFrequency = syllablePitches.reduce((sum, p) => sum + p.frequency, 0) / syllablePitches.length;
+
+    // Classify swara using the same thresholds as test-swara
+    const { swara: detectedSwara, confidence } = classifySwara(avgFrequency, userBaseToneHz);
+
+    // Calculate semitones for logging
+    const semitones = 12 * Math.log2(avgFrequency / userBaseToneHz);
+
+    // Check if it matches
+    const match = (detectedSwara === syllable.swara) ||
+                  (syllable.swara === 'swarita' && detectedSwara === 'dheerga') ||
+                  (syllable.swara === 'dheerga' && detectedSwara === 'swarita');
+
+    const score = match ? 95 : 40;
+    const accuracy = score >= 90 ? 'perfect' : score >= 75 ? 'good' : score >= 60 ? 'fair' : 'poor';
+
+    console.log(`📊 [${syllable.text}] freq=${avgFrequency.toFixed(1)}Hz, ` +
+                `semitones=${semitones.toFixed(2)}, ` +
+                `expected=${syllable.swara}, detected=${detectedSwara}, ` +
+                `match=${match ? '✅' : '❌'}, score=${score}%`);
+
+    results.push({
+      syllableIndex: i,
+      expectedText: syllable.text,
+      transcribedText: syllable.text,
+      expectedSwara: syllable.swara,
+      pronunciationScore: 100,
+      pronunciationMatch: true,
+      detectedSwara,
+      swaraScore: score,
+      swaraMatch: match,
+      overallScore: score,
+      accuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor'
+    });
+  }
+
+  // Print summary
+  const matches = results.filter(r => r.swaraMatch).length;
+  const total = results.length;
+  const overallAccuracy = Math.round((matches / total) * 100);
+
+  console.log('\n🎯 Swara Detection Summary:');
+  console.log(`   Total syllables: ${total}`);
+  console.log(`   Correct matches: ${matches} ✅`);
+  console.log(`   Incorrect: ${total - matches} ❌`);
+  console.log(`   Overall accuracy: ${overallAccuracy}%\n`);
+
+  return results;
+}
+
+/**
+ * Extract pitches from audio using simple autocorrelation
+ */
+function extractPitchesFromAudio(audioData: Float32Array, sampleRate: number): Array<{ time: number; frequency: number }> {
+  const pitches: Array<{ time: number; frequency: number }> = [];
+  const frameSize = 2048;
+  const hopSize = 512;
+
+  for (let i = 0; i + frameSize < audioData.length; i += hopSize) {
+    const frame = audioData.slice(i, i + frameSize);
+    const frequency = detectPitchAutocorrelation(frame, sampleRate);
+    const time = i / sampleRate;
+    pitches.push({ time, frequency });
+  }
+
+  return pitches;
+}
+
+/**
+ * Simple autocorrelation-based pitch detection
+ */
+function detectPitchAutocorrelation(buffer: Float32Array, sampleRate: number): number {
+  const SIZE = buffer.length;
+  const MAX_SAMPLES = Math.floor(SIZE / 2);
+  let best_offset = -1;
+  let best_correlation = 0;
+  let rms = 0;
+
+  // Calculate RMS
+  for (let i = 0; i < SIZE; i++) {
+    const val = buffer[i];
+    rms += val * val;
+  }
+  rms = Math.sqrt(rms / SIZE);
+
+  // Not enough signal
+  if (rms < 0.01) return 0;
+
+  // Find the best offset (autocorrelation)
+  let lastCorrelation = 1;
+  for (let offset = 1; offset < MAX_SAMPLES; offset++) {
+    let correlation = 0;
+
+    for (let i = 0; i < MAX_SAMPLES; i++) {
+      correlation += Math.abs(buffer[i] - buffer[i + offset]);
+    }
+
+    correlation = 1 - correlation / MAX_SAMPLES;
+
+    if (correlation > 0.9 && correlation > lastCorrelation) {
+      const foundGoodCorrelation = correlation > best_correlation;
+      if (foundGoodCorrelation) {
+        best_correlation = correlation;
+        best_offset = offset;
+      }
+    }
+
+    lastCorrelation = correlation;
+  }
+
+  if (best_offset === -1 || best_correlation < 0.01) return 0;
+
+  const frequency = sampleRate / best_offset;
+
+  // Filter out unrealistic frequencies
+  if (frequency < 50 || frequency > 1000) return 0;
+
+  return frequency;
+}
+
+/**
+ * Detect voice activity region (where speech actually occurs)
+ */
+function detectVoiceActivity(pitches: Array<{ time: number; frequency: number }>): { start: number; end: number } {
+  // Find first and last non-zero pitch
+  let firstVoice = -1;
+  let lastVoice = -1;
+
+  for (let i = 0; i < pitches.length; i++) {
+    if (pitches[i].frequency > 0) {
+      if (firstVoice === -1) firstVoice = i;
+      lastVoice = i;
+    }
+  }
+
+  if (firstVoice === -1) {
+    // No voice detected, use full duration
+    return {
+      start: 0,
+      end: pitches[pitches.length - 1]?.time || 1
+    };
+  }
+
+  // Add small padding
+  const startIdx = Math.max(0, firstVoice - 5);
+  const endIdx = Math.min(pitches.length - 1, lastVoice + 5);
+
+  return {
+    start: pitches[startIdx].time,
+    end: pitches[endIdx].time
+  };
 }
 
 /**
