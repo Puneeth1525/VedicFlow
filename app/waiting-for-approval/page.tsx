@@ -64,7 +64,7 @@ export default function WaitingForApprovalPage() {
           {/* Message */}
           <p className="text-purple-200 mb-6 text-sm sm:text-base">
             Thank you for signing up! Your account is pending admin approval.
-            We'll notify you once you've been approved to access the app.
+            We&apos;ll notify you once you&apos;ve been approved to access the app.
           </p>
 
           {/* Email info */}
@@ -92,7 +92,7 @@ export default function WaitingForApprovalPage() {
               <div className="text-sm text-purple-200">
                 <p className="font-medium mb-1">What happens next?</p>
                 <p className="text-purple-300">
-                  Once an admin approves your account, you'll automatically be redirected to the onboarding flow.
+                  Once an admin approves your account, you&apos;ll automatically be redirected to the onboarding flow.
                   No action needed from your side!
                 </p>
               </div>
