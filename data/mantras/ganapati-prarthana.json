@@ -1,6 +1,6 @@
 {
   "id": "ganapati-prarthana",
-  "title": "Gaṇapati Prārthana (Ṛg Veda 2.23.1)",
+  "title": "Gaṇapati Prārthana",
   "category": "Rig Veda",
   "audioUrl": "",
   "paragraphs": [
@@ -40,7 +40,7 @@
         },
         {
           "id": 2,
-          "wordBoundaries": [0, 5, 10, 16, 17, 20, 25],
+          "wordBoundaries": [0, 5, 10, 16, 17, 20],
           "sanskrit": [
             { "text": "ज्ये", "swara": "swarita", "romanization": "jye" },
             { "text": "ष्ठ", "swara": "anudhaatha", "romanization": "ṣṭha" },
@@ -65,9 +65,7 @@
             { "text": "द", "swara": "anudhaatha", "romanization": "da" },
             { "text": "सा", "swara": "udhaatha", "romanization": "sā" },
             { "text": "द", "swara": "anudhaatha", "romanization": "da" },
-            { "text": "नम्", "swara": "udhaatha", "romanization": "nam" },
-            { "text": "स्वा", "swara": "anudhaatha", "romanization": "svā" },
-            { "text": "हा", "swara": "dheerga", "romanization": "hā" }
+            { "text": "नम्", "swara": "udhaatha", "romanization": "nam" }
           ]
         }
       ]
