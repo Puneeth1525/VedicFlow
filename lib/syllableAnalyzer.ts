@@ -167,7 +167,7 @@ function matchIndividualAksharas(
       expectedSwara: s.swara,
       pronunciationScore: 100,
       pronunciationMatch: true,
-      detectedSwara: 'udhaata' as const,
+      detectedSwara: 'udhaatha' as const,
       swaraScore: 0,
       swaraMatch: false,
       overallScore: 100,
@@ -191,7 +191,7 @@ function matchIndividualAksharas(
       expectedSwara: s.swara,
       pronunciationScore: overallSimilarity,
       pronunciationMatch: true,
-      detectedSwara: 'udhaata' as const,
+      detectedSwara: 'udhaatha' as const,
       swaraScore: 0,
       swaraMatch: false,
       overallScore: overallSimilarity,
@@ -231,7 +231,7 @@ function matchIndividualAksharas(
       pronunciationMatch,
 
       // Placeholder - not analyzing swaras yet
-      detectedSwara: 'udhaata',
+      detectedSwara: 'udhaatha',
       swaraScore: 0,
       swaraMatch: false,
 
@@ -343,7 +343,7 @@ function createEmptyResult(syllables: SyllableWithSwara[]): ComprehensiveAnalysi
       expectedSwara: s.swara,
       pronunciationScore: 0,
       pronunciationMatch: false,
-      detectedSwara: 'udhaata',
+      detectedSwara: 'udhaatha',
       swaraScore: 0,
       swaraMatch: false,
       overallScore: 0,
