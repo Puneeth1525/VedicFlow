@@ -2,11 +2,11 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { Mic, CheckCircle, Sparkles, AlertTriangle, Volume2 } from 'lucide-react';
+import { Mic, CheckCircle, Sparkles, Volume2, AlertTriangle } from 'lucide-react';
 import { RealtimePitchDetector, calculateBasePitch, type PitchData } from '@/lib/pitchDetection';
 import Image from 'next/image';
 
-type RecordingState = 'idle' | 'waiting-for-om' | 'recording-om' | 'quality-failed' | 'success';
+type RecordingState = 'idle' | 'waiting-for-om' | 'recording-om';
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
@@ -18,14 +18,11 @@ export default function OnboardingPage() {
   const [allRecordings, setAllRecordings] = useState<number[]>([]); // Store all 3 base tones
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [countdown, setCountdown] = useState<number>(6);
-  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const collectedPitchesRef = useRef<PitchData[]>([]);
   const omDetectionStartRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastPitchRef = useRef<number | null>(null);
-  const stablePitchCountRef = useRef<number>(0);
   const recordingStateRef = useRef<RecordingState>('idle');
 
   // Cleanup pitch detector and timers on unmount
@@ -48,10 +45,7 @@ export default function OnboardingPage() {
       setRecordingState('waiting-for-om');
       recordingStateRef.current = 'waiting-for-om';
       setCountdown(6);
-      setErrorMessage('');
       omDetectionStartRef.current = null;
-      lastPitchRef.current = null;
-      stablePitchCountRef.current = 0;
 
       // Clear any existing countdown
       if (countdownIntervalRef.current) {
@@ -72,7 +66,6 @@ export default function OnboardingPage() {
           setRecordingState('recording-om');
           recordingStateRef.current = 'recording-om';
           omDetectionStartRef.current = Date.now();
-          lastPitchRef.current = frequency;
 
           // Start 6-second countdown
           let timeLeft = 6;
@@ -89,36 +82,17 @@ export default function OnboardingPage() {
           }, 1000);
         }
 
-        // Recording OM - monitor quality and collect data
-        if (recordingStateRef.current === 'recording-om' && frequency > 0) {
-          // Check pitch stability (within 2 semitones - more lenient)
-          if (lastPitchRef.current && frequency > 0) {
-            const semitonesDiff = Math.abs(12 * Math.log2(frequency / lastPitchRef.current));
-            if (semitonesDiff > 2) {
-              setRecordingState('quality-failed');
-              recordingStateRef.current = 'quality-failed';
-              setErrorMessage('Pitch varied too much. Please maintain a steady tone.');
-              if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
-              }
-              stopRecording();
-              return;
-            }
+        // Recording OM - just collect data, no quality checks
+        if (recordingStateRef.current === 'recording-om') {
+          // Collect ALL data - even silence and pitch variations
+          // We'll filter and process at the end
+          if (frequency > 0) {
+            collectedPitchesRef.current.push({
+              frequency,
+              clarity,
+              timestamp: Date.now(),
+            });
           }
-          lastPitchRef.current = frequency;
-
-          // Collect valid pitch data
-          collectedPitchesRef.current.push({
-            frequency,
-            clarity,
-            timestamp: Date.now(),
-          });
-        }
-
-        // Check for long pauses (more than 0.5 seconds of silence)
-        if (recordingStateRef.current === 'recording-om' && frequency === 0) {
-          // Allow brief pauses, but if we're in recording state and get silence, it's okay
-          // We'll check total data collected at the end
         }
       });
 
@@ -140,60 +114,42 @@ export default function OnboardingPage() {
         clearInterval(countdownIntervalRef.current);
       }
 
-      // If quality check failed, don't process
-      if (recordingStateRef.current === 'quality-failed') {
-        setRecordingState('idle');
-        recordingStateRef.current = 'idle';
-        return;
-      }
-
       // Calculate base tone from collected pitches
       setIsProcessing(true);
       try {
-        if (collectedPitchesRef.current.length > 0) {
+        if (collectedPitchesRef.current.length > 10) {
+          // We have enough data - process it
           const basePitch = calculateBasePitch(collectedPitchesRef.current);
 
           // Store this recording
           const updatedRecordings = [...allRecordings, basePitch];
           setAllRecordings(updatedRecordings);
-          setRecordingState('success');
-          recordingStateRef.current = 'success';
 
-          // Show success briefly before moving on
-          setTimeout(() => {
-            if (recordingNumber < 3) {
-              // Move to next recording
-              setRecordingNumber(recordingNumber + 1);
-              setBaseToneHz(null);
-              setRecordingState('idle');
-              recordingStateRef.current = 'idle';
-            } else {
-              // All 3 recordings done - calculate average
-              const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
-              const roundedAverage = Math.round(average * 10) / 10;
-              setBaseToneHz(roundedAverage);
-              setRecordingState('idle');
-              recordingStateRef.current = 'idle';
-            }
-          }, 1500);
-        } else {
-          setRecordingState('quality-failed');
-          recordingStateRef.current = 'quality-failed';
-          setErrorMessage('No pitch data collected. Please hold the OM for at least 6 seconds.');
-          setTimeout(() => {
+          // Auto-advance to next recording or finish
+          if (recordingNumber < 3) {
+            // Move to next recording immediately
+            setRecordingNumber(recordingNumber + 1);
+            setBaseToneHz(null);
             setRecordingState('idle');
             recordingStateRef.current = 'idle';
-          }, 3000);
+          } else {
+            // All 3 recordings done - calculate average
+            const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
+            const roundedAverage = Math.round(average * 10) / 10;
+            setBaseToneHz(roundedAverage);
+            setRecordingState('idle');
+            recordingStateRef.current = 'idle';
+          }
+        } else {
+          // Not enough data - just retry silently
+          setRecordingState('idle');
+          recordingStateRef.current = 'idle';
         }
       } catch (error) {
         console.error('Error calculating base tone:', error);
-        setRecordingState('quality-failed');
-        recordingStateRef.current = 'quality-failed';
-        setErrorMessage('Failed to calculate base tone. Please try again.');
-        setTimeout(() => {
-          setRecordingState('idle');
-          recordingStateRef.current = 'idle';
-        }, 3000);
+        // Don't show error - just reset to idle for retry
+        setRecordingState('idle');
+        recordingStateRef.current = 'idle';
       } finally {
         setIsProcessing(false);
       }
@@ -502,40 +458,6 @@ export default function OnboardingPage() {
                 </motion.div>
               )}
 
-              {recordingState === 'quality-failed' && !isRecording && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="w-full max-w-md p-6 rounded-xl bg-red-500/10 backdrop-blur-lg border border-red-500/30"
-                >
-                  <div className="text-center space-y-3">
-                    <div className="flex items-center justify-center gap-3">
-                      <AlertTriangle className="w-6 h-6 text-red-400" />
-                      <h3 className="text-lg font-semibold text-red-300">Recording Failed</h3>
-                    </div>
-                    <p className="text-sm text-red-200">{errorMessage}</p>
-                    <p className="text-xs text-purple-300">Please try again</p>
-                  </div>
-                </motion.div>
-              )}
-
-              {recordingState === 'success' && !isRecording && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="w-full max-w-md p-6 rounded-xl bg-green-500/10 backdrop-blur-lg border border-green-500/30"
-                >
-                  <div className="text-center space-y-3">
-                    <div className="flex items-center justify-center gap-3">
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                      <h3 className="text-lg font-semibold text-green-300">Perfect!</h3>
-                    </div>
-                    <p className="text-sm text-green-200">Recording #{recordingNumber} captured successfully</p>
-                  </div>
-                </motion.div>
-              )}
             </AnimatePresence>
 
             {baseToneHz && !isRecording && (
