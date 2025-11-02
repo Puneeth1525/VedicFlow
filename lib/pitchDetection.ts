@@ -371,12 +371,41 @@ export async function loadAndAnalyzeAudio(audioUrl: string): Promise<PitchData[]
 
 /**
  * Calculate base pitch (median of all pitches) for reference
+ * Includes harmonic correction to find true fundamental frequency
  */
 export function calculateBasePitch(pitchData: PitchData[]): number {
   if (pitchData.length === 0) return 200; // Default fallback
 
   const frequencies = pitchData.map(p => p.frequency).sort((a, b) => a - b);
-  const median = frequencies[Math.floor(frequencies.length / 2)];
+  let median = frequencies[Math.floor(frequencies.length / 2)];
+
+  // Harmonic correction: if median is too high, it might be a harmonic
+  // Human voice fundamentals are typically:
+  // Male: 85-180 Hz
+  // Female: 165-255 Hz
+  // If we detect something >300 Hz, it's likely a harmonic
+
+  if (median > 300) {
+    // Try dividing by 2, 3, or 4 to find the fundamental
+    const candidates = [
+      median,
+      median / 2,
+      median / 3,
+      median / 4
+    ];
+
+    // Pick the candidate that falls in the most likely range (80-250 Hz)
+    const bestCandidate = candidates.find(f => f >= 80 && f <= 250);
+    if (bestCandidate) {
+      median = bestCandidate;
+    } else {
+      // If none in ideal range, pick closest to 150 Hz (middle of typical range)
+      median = candidates.reduce((prev, curr) =>
+        Math.abs(curr - 150) < Math.abs(prev - 150) ? curr : prev
+      );
+    }
+  }
+
   return median;
 }
 

@@ -66,55 +66,41 @@ export default function OnboardingPage() {
       await detector.start((frequency, clarity) => {
         setCurrentFrequency(frequency);
 
-        // Waiting for OM detection
+        // Waiting for OM - start countdown as soon as we detect sound
         if (recordingStateRef.current === 'waiting-for-om' && frequency > 0) {
-          // Check if pitch is stable (within 0.5 semitone for 3 consecutive readings)
-          if (lastPitchRef.current) {
-            const semitonesDiff = Math.abs(12 * Math.log2(frequency / lastPitchRef.current));
-            if (semitonesDiff < 0.5) {
-              stablePitchCountRef.current++;
-              if (stablePitchCountRef.current >= 3) {
-                // OM detected! Start countdown
-                setRecordingState('recording-om');
-                recordingStateRef.current = 'recording-om';
-                omDetectionStartRef.current = Date.now();
-
-                // Start 6-second countdown
-                let timeLeft = 6;
-                setCountdown(timeLeft);
-                countdownIntervalRef.current = setInterval(() => {
-                  timeLeft--;
-                  setCountdown(timeLeft);
-                  if (timeLeft <= 0) {
-                    stopRecording();
-                  }
-                }, 1000);
-              }
-            } else {
-              stablePitchCountRef.current = 0;
-            }
-          }
+          // Sound detected! Start countdown immediately
+          setRecordingState('recording-om');
+          recordingStateRef.current = 'recording-om';
+          omDetectionStartRef.current = Date.now();
           lastPitchRef.current = frequency;
+
+          // Start 6-second countdown
+          let timeLeft = 6;
+          setCountdown(timeLeft);
+          countdownIntervalRef.current = setInterval(() => {
+            timeLeft--;
+            setCountdown(timeLeft);
+            if (timeLeft <= 0) {
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+              }
+              stopRecording();
+            }
+          }, 1000);
         }
 
-        // Recording OM - monitor quality
-        if (recordingStateRef.current === 'recording-om') {
-          if (frequency === 0) {
-            // Pause/silence detected
-            setRecordingState('quality-failed');
-            recordingStateRef.current = 'quality-failed';
-            setErrorMessage('Recording paused or too quiet. Please try again with a continuous OM.');
-            stopRecording();
-            return;
-          }
-
-          // Check pitch stability (within 1 semitone)
+        // Recording OM - monitor quality and collect data
+        if (recordingStateRef.current === 'recording-om' && frequency > 0) {
+          // Check pitch stability (within 2 semitones - more lenient)
           if (lastPitchRef.current && frequency > 0) {
             const semitonesDiff = Math.abs(12 * Math.log2(frequency / lastPitchRef.current));
-            if (semitonesDiff > 1) {
+            if (semitonesDiff > 2) {
               setRecordingState('quality-failed');
               recordingStateRef.current = 'quality-failed';
               setErrorMessage('Pitch varied too much. Please maintain a steady tone.');
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+              }
               stopRecording();
               return;
             }
@@ -127,6 +113,12 @@ export default function OnboardingPage() {
             clarity,
             timestamp: Date.now(),
           });
+        }
+
+        // Check for long pauses (more than 0.5 seconds of silence)
+        if (recordingStateRef.current === 'recording-om' && frequency === 0) {
+          // Allow brief pauses, but if we're in recording state and get silence, it's okay
+          // We'll check total data collected at the end
         }
       });
 
