@@ -51,22 +51,50 @@ export async function POST(req: Request) {
   const eventType = evt.type;
 
   if (eventType === 'user.created') {
-    const { id } = evt.data;
+    const { id, email_addresses } = evt.data;
+
+    // Get primary email address
+    const primaryEmail = email_addresses?.find(email => email.id === evt.data.primary_email_address_id);
+    const emailAddress = primaryEmail?.email_address || email_addresses?.[0]?.email_address;
 
     try {
       // Create user in database when they sign up via Clerk
       await prisma.user.create({
         data: {
           id,
+          email: emailAddress,
           role: 'STUDENT', // Default role
           onboardingComplete: false,
         },
       });
 
-      console.log(`✅ User ${id} created in database via webhook`);
+      console.log(`✅ User ${id} (${emailAddress}) created in database via webhook`);
     } catch (error) {
       console.error('Error creating user in database:', error);
       return new Response('Error creating user', { status: 500 });
+    }
+  }
+
+  if (eventType === 'user.updated') {
+    const { id, email_addresses } = evt.data;
+
+    // Get primary email address
+    const primaryEmail = email_addresses?.find(email => email.id === evt.data.primary_email_address_id);
+    const emailAddress = primaryEmail?.email_address || email_addresses?.[0]?.email_address;
+
+    try {
+      // Update user email in database when they update it in Clerk
+      await prisma.user.update({
+        where: { id: id! },
+        data: {
+          email: emailAddress,
+        },
+      });
+
+      console.log(`✅ User ${id} email updated to ${emailAddress} via webhook`);
+    } catch (error) {
+      console.error('Error updating user in database:', error);
+      // Don't return error - user might not exist in our DB yet
     }
   }
 
