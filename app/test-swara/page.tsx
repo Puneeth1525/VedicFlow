@@ -203,7 +203,7 @@ export default function TestSwaraPage() {
               <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                 <div className="text-xs text-white/50 mb-1">Ratio</div>
                 <div className="text-lg font-semibold">
-                  {(currentFrequency / baseToneHz).toFixed(3)}x
+                  {currentFrequency !== null ? (currentFrequency / baseToneHz).toFixed(3) : '0.000'}x
                 </div>
               </div>
               <div className="p-4 rounded-lg bg-white/5 border border-white/10">
