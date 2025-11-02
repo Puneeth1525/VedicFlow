@@ -73,8 +73,8 @@ export default function TestSwaraPage() {
         // Always update display
         setCurrentFrequency(frequency);
 
-        // Only process if we have valid frequency
-        if (frequency > 0) {
+        // Only process if we have valid frequency and baseTone
+        if (frequency > 0 && baseToneHz) {
           // Calculate semitones from base
           const semitonesFromBase = 12 * Math.log2(frequency / baseToneHz);
           setSemitones(semitonesFromBase);
@@ -119,6 +119,8 @@ export default function TestSwaraPage() {
   };
 
   const exportData = () => {
+    if (!baseToneHz) return;
+
     const dataWithSwaras = recordingData.map(d => ({
       frequency: d.frequency,
       semitones: 12 * Math.log2(d.frequency / baseToneHz),
