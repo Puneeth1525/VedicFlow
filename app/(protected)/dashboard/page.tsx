@@ -6,7 +6,7 @@ import { UserButton } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatRelativeTime } from '@/lib/format';
-import OnboardingPage from '@/app/onboarding/page';
+import OnboardingPage from '@/app/(protected)/onboarding/page';
 import Image from 'next/image';
 
 type Recording = {

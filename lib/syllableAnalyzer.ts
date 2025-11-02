@@ -327,7 +327,7 @@ async function analyzeSwaras(
     const avgFrequency = syllablePitches.reduce((sum, p) => sum + p.frequency, 0) / syllablePitches.length;
 
     // Classify swara using the same thresholds as test-swara
-    const { swara: detectedSwara, confidence } = classifySwara(avgFrequency, userBaseToneHz);
+    const { swara: detectedSwara } = classifySwara(avgFrequency, userBaseToneHz);
 
     // Calculate semitones for logging
     const semitones = 12 * Math.log2(avgFrequency / userBaseToneHz);
