@@ -153,9 +153,9 @@ export default function PracticePage() {
 
   const getSwaraColor = (swara: SwaraType) => {
     switch (swara) {
-      case 'anudhaata':
+      case 'anudhaatha':
         return 'text-blue-400 bg-blue-500/20 border-blue-400/30';  // Low pitch
-      case 'udhaata':
+      case 'udhaatha':
         return 'text-yellow-400 bg-yellow-500/20 border-yellow-400/30';  // Base/Stable pitch
       case 'swarita':
         return 'text-red-400 bg-red-500/20 border-red-400/30';  // Rising pitch
@@ -166,9 +166,9 @@ export default function PracticePage() {
 
   const getSwaraSymbol = (swara: SwaraType) => {
     switch (swara) {
-      case 'anudhaata':
+      case 'anudhaatha':
         return '↓';  // Going down
-      case 'udhaata':
+      case 'udhaatha':
         return '—';  // Base/Stable
       case 'swarita':
         return '↗';  // Going up
@@ -184,9 +184,9 @@ export default function PracticePage() {
         return 1.5;  // Prolonged - takes 50% more time
       case 'swarita':
         return 1.1;  // Rising pitch - slightly longer
-      case 'anudhaata':
+      case 'anudhaatha':
         return 0.9;  // Low pitch - slightly shorter
-      case 'udhaata':
+      case 'udhaatha':
         return 1.0;  // Base - normal duration
     }
   };
