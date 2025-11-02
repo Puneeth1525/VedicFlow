@@ -6,6 +6,8 @@ import { Mic, CheckCircle, Sparkles, AlertTriangle, Volume2 } from 'lucide-react
 import { RealtimePitchDetector, calculateBasePitch, type PitchData } from '@/lib/pitchDetection';
 import Image from 'next/image';
 
+type RecordingState = 'idle' | 'waiting-for-om' | 'recording-om' | 'quality-failed' | 'success';
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -14,24 +16,47 @@ export default function OnboardingPage() {
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
   const [recordingNumber, setRecordingNumber] = useState(1); // Track which recording (1, 2, or 3)
   const [allRecordings, setAllRecordings] = useState<number[]>([]); // Store all 3 base tones
+  const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const [countdown, setCountdown] = useState<number>(6);
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
   const pitchDetectorRef = useRef<RealtimePitchDetector | null>(null);
   const collectedPitchesRef = useRef<PitchData[]>([]);
+  const omDetectionStartRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPitchRef = useRef<number | null>(null);
+  const stablePitchCountRef = useRef<number>(0);
+  const recordingStateRef = useRef<RecordingState>('idle');
 
-  // Cleanup pitch detector on unmount
+  // Cleanup pitch detector and timers on unmount
   useEffect(() => {
     return () => {
       if (pitchDetectorRef.current) {
         pitchDetectorRef.current.stop();
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
       }
     };
   }, []);
 
   const startRecording = async () => {
     try {
-      // Reset collected pitches
+      // Reset state
       collectedPitchesRef.current = [];
       setCurrentFrequency(null);
-      setBaseToneHz(null);
+      setRecordingState('waiting-for-om');
+      recordingStateRef.current = 'waiting-for-om';
+      setCountdown(6);
+      setErrorMessage('');
+      omDetectionStartRef.current = null;
+      lastPitchRef.current = null;
+      stablePitchCountRef.current = 0;
+
+      // Clear any existing countdown
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
 
       // Create new pitch detector
       const detector = new RealtimePitchDetector();
@@ -39,11 +64,64 @@ export default function OnboardingPage() {
 
       // Start pitch detection with real-time callback
       await detector.start((frequency, clarity) => {
-        // Always update display
         setCurrentFrequency(frequency);
 
-        // Only collect valid pitch data (ignore silence)
-        if (frequency > 0) {
+        // Waiting for OM detection
+        if (recordingStateRef.current === 'waiting-for-om' && frequency > 0) {
+          // Check if pitch is stable (within 0.5 semitone for 3 consecutive readings)
+          if (lastPitchRef.current) {
+            const semitonesDiff = Math.abs(12 * Math.log2(frequency / lastPitchRef.current));
+            if (semitonesDiff < 0.5) {
+              stablePitchCountRef.current++;
+              if (stablePitchCountRef.current >= 3) {
+                // OM detected! Start countdown
+                setRecordingState('recording-om');
+                recordingStateRef.current = 'recording-om';
+                omDetectionStartRef.current = Date.now();
+
+                // Start 6-second countdown
+                let timeLeft = 6;
+                setCountdown(timeLeft);
+                countdownIntervalRef.current = setInterval(() => {
+                  timeLeft--;
+                  setCountdown(timeLeft);
+                  if (timeLeft <= 0) {
+                    stopRecording();
+                  }
+                }, 1000);
+              }
+            } else {
+              stablePitchCountRef.current = 0;
+            }
+          }
+          lastPitchRef.current = frequency;
+        }
+
+        // Recording OM - monitor quality
+        if (recordingStateRef.current === 'recording-om') {
+          if (frequency === 0) {
+            // Pause/silence detected
+            setRecordingState('quality-failed');
+            recordingStateRef.current = 'quality-failed';
+            setErrorMessage('Recording paused or too quiet. Please try again with a continuous OM.');
+            stopRecording();
+            return;
+          }
+
+          // Check pitch stability (within 1 semitone)
+          if (lastPitchRef.current && frequency > 0) {
+            const semitonesDiff = Math.abs(12 * Math.log2(frequency / lastPitchRef.current));
+            if (semitonesDiff > 1) {
+              setRecordingState('quality-failed');
+              recordingStateRef.current = 'quality-failed';
+              setErrorMessage('Pitch varied too much. Please maintain a steady tone.');
+              stopRecording();
+              return;
+            }
+          }
+          lastPitchRef.current = frequency;
+
+          // Collect valid pitch data
           collectedPitchesRef.current.push({
             frequency,
             clarity,
@@ -60,10 +138,22 @@ export default function OnboardingPage() {
   };
 
   const stopRecording = async () => {
-    if (pitchDetectorRef.current && isRecording) {
+    if (pitchDetectorRef.current) {
       // Stop the pitch detector
       pitchDetectorRef.current.stop();
       setIsRecording(false);
+
+      // Clear countdown timer
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+
+      // If quality check failed, don't process
+      if (recordingStateRef.current === 'quality-failed') {
+        setRecordingState('idle');
+        recordingStateRef.current = 'idle';
+        return;
+      }
 
       // Calculate base tone from collected pitches
       setIsProcessing(true);
@@ -74,23 +164,44 @@ export default function OnboardingPage() {
           // Store this recording
           const updatedRecordings = [...allRecordings, basePitch];
           setAllRecordings(updatedRecordings);
+          setRecordingState('success');
+          recordingStateRef.current = 'success';
 
-          if (recordingNumber < 3) {
-            // Move to next recording
-            setRecordingNumber(recordingNumber + 1);
-            setBaseToneHz(null);
-          } else {
-            // All 3 recordings done - calculate average
-            const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
-            const roundedAverage = Math.round(average * 10) / 10;
-            setBaseToneHz(roundedAverage);
-          }
+          // Show success briefly before moving on
+          setTimeout(() => {
+            if (recordingNumber < 3) {
+              // Move to next recording
+              setRecordingNumber(recordingNumber + 1);
+              setBaseToneHz(null);
+              setRecordingState('idle');
+              recordingStateRef.current = 'idle';
+            } else {
+              // All 3 recordings done - calculate average
+              const average = updatedRecordings.reduce((sum, val) => sum + val, 0) / updatedRecordings.length;
+              const roundedAverage = Math.round(average * 10) / 10;
+              setBaseToneHz(roundedAverage);
+              setRecordingState('idle');
+              recordingStateRef.current = 'idle';
+            }
+          }, 1500);
         } else {
-          alert('No pitch data collected. Please try recording again with a longer "OM".');
+          setRecordingState('quality-failed');
+          recordingStateRef.current = 'quality-failed';
+          setErrorMessage('No pitch data collected. Please hold the OM for at least 6 seconds.');
+          setTimeout(() => {
+            setRecordingState('idle');
+            recordingStateRef.current = 'idle';
+          }, 3000);
         }
       } catch (error) {
         console.error('Error calculating base tone:', error);
-        alert('Failed to calculate base tone. Please try again.');
+        setRecordingState('quality-failed');
+        recordingStateRef.current = 'quality-failed';
+        setErrorMessage('Failed to calculate base tone. Please try again.');
+        setTimeout(() => {
+          setRecordingState('idle');
+          recordingStateRef.current = 'idle';
+        }, 3000);
       } finally {
         setIsProcessing(false);
       }
@@ -344,16 +455,99 @@ export default function OnboardingPage() {
                 ? 'All recordings complete!'
                 : `Click to record (${recordingNumber} of 3)`}
             </p>
-            {isRecording && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
-                <Volume2 className="w-5 h-5 text-cyan-400" />
-                <span className="text-sm text-cyan-300">
-                  Current pitch: {currentFrequency !== null ? currentFrequency.toFixed(1) : '0.0'} Hz
-                </span>
-              </div>
-            )}
+
+            {/* Recording State Dialog */}
+            <AnimatePresence>
+              {isRecording && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="w-full max-w-md p-6 rounded-xl bg-white/10 backdrop-blur-lg border border-white/20"
+                >
+                  {recordingState === 'waiting-for-om' && (
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="w-3 h-3 bg-cyan-400 rounded-full animate-ping"></div>
+                        <h3 className="text-lg font-semibold text-cyan-300">Listening for OM...</h3>
+                      </div>
+                      <p className="text-sm text-purple-200">
+                        Start chanting a steady &quot;OOOMM&quot; in your natural pitch
+                      </p>
+                      {currentFrequency !== null && currentFrequency > 0 && (
+                        <div className="p-3 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
+                          <div className="text-xs text-cyan-300 mb-1">Detected Frequency</div>
+                          <div className="text-2xl font-bold text-cyan-200">
+                            {currentFrequency.toFixed(1)} Hz
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {recordingState === 'recording-om' && (
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <Volume2 className="w-6 h-6 text-green-400 animate-pulse" />
+                        <h3 className="text-lg font-semibold text-green-300">Recording OM</h3>
+                      </div>
+                      <div className="relative">
+                        <div className="text-6xl font-bold text-green-400 mb-2">
+                          {countdown}
+                        </div>
+                        <p className="text-sm text-purple-200">
+                          Keep chanting steadily...
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-green-500/20 border border-green-500/30">
+                        <div className="text-xs text-green-300 mb-1">Current Pitch</div>
+                        <div className="text-xl font-bold text-green-200">
+                          {currentFrequency !== null ? currentFrequency.toFixed(1) : '0.0'} Hz
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {recordingState === 'quality-failed' && !isRecording && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="w-full max-w-md p-6 rounded-xl bg-red-500/10 backdrop-blur-lg border border-red-500/30"
+                >
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center gap-3">
+                      <AlertTriangle className="w-6 h-6 text-red-400" />
+                      <h3 className="text-lg font-semibold text-red-300">Recording Failed</h3>
+                    </div>
+                    <p className="text-sm text-red-200">{errorMessage}</p>
+                    <p className="text-xs text-purple-300">Please try again</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {recordingState === 'success' && !isRecording && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="w-full max-w-md p-6 rounded-xl bg-green-500/10 backdrop-blur-lg border border-green-500/30"
+                >
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center gap-3">
+                      <CheckCircle className="w-6 h-6 text-green-400" />
+                      <h3 className="text-lg font-semibold text-green-300">Perfect!</h3>
+                    </div>
+                    <p className="text-sm text-green-200">Recording #{recordingNumber} captured successfully</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {baseToneHz && !isRecording && (
-              <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-500/20 border border-green-500/30 w-full max-w-md">
+              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 w-full max-w-md">
                 <CheckCircle className="w-6 h-6 text-green-400" />
                 <div className="text-center">
                   <div className="text-sm text-green-300 mb-1">Average Base Tone</div>
