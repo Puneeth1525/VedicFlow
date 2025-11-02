@@ -58,7 +58,7 @@ export class VedicSwaraClassifier {
 
     // If syllables provided, find udātta syllables specifically
     if (syllables && syllables.length > 0) {
-      const udaataSyllables = syllables.filter(s => s.expectedSwara === 'udhaata');
+      const udaataSyllables = syllables.filter(s => s.expectedSwara === 'udhaatha');
 
       if (udaataSyllables.length > 0) {
         console.log(`🎯 Found ${udaataSyllables.length} udātta syllables to use as baseline`);
@@ -102,8 +102,8 @@ export class VedicSwaraClassifier {
 
     // Define semitone ranges for each swara (more lenient)
     const semitoneRange = {
-      anudhaata: [-6.0, -0.5] as [number, number],    // Any note below udātta
-      udhaata: [-0.5, 0.5] as [number, number],        // Within ±0.5 semitones
+      anudhaatha: [-6.0, -0.5] as [number, number],    // Any note below udātta
+      udhaatha: [-0.5, 0.5] as [number, number],        // Within ±0.5 semitones
       swarita: [0.5, 6.0] as [number, number],         // Any note above udātta
       dheerga: [0.5, 6.0] as [number, number]          // Same as swarita (distinguished by duration)
     };
@@ -157,11 +157,11 @@ export class VedicSwaraClassifier {
     // - Anudātta/Swarita need to be clearly outside this range
     if (semitones < -1.3) {
       // Below baseline = anudātta (went clearly down)
-      swara = 'anudhaata';
+      swara = 'anudhaatha';
       idealDeviation = semitones;  // Use actual deviation as ideal
     } else if (semitones >= -1.3 && semitones <= 1.3) {
       // At baseline = udātta (stable pitch with natural variation)
-      swara = 'udhaata';
+      swara = 'udhaatha';
       idealDeviation = 0;
     } else {
       // Above baseline = swarita or dheerga (went clearly up)
@@ -248,7 +248,7 @@ export class VedicSwaraClassifier {
           endTime: syllable.endTime,
           duration: syllable.endTime - syllable.startTime,
           detection: {
-            swara: 'udhaata',
+            swara: 'udhaatha',
             confidence: 0,
             semitoneDeviation: 0,
             frequency: 0,
@@ -309,8 +309,8 @@ export class VedicSwaraClassifier {
 
     // Breakdown by swara type
     const bySwara: Record<string, { expected: number; matched: number }> = {
-      anudhaata: { expected: 0, matched: 0 },
-      udhaata: { expected: 0, matched: 0 },
+      anudhaatha: { expected: 0, matched: 0 },
+      udhaatha: { expected: 0, matched: 0 },
       swarita: { expected: 0, matched: 0 },
       dheerga: { expected: 0, matched: 0 }
     };
