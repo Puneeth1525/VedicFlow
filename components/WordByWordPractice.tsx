@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Volume2, ArrowRight, X, RotateCcw } from 'lucide-react';
+import { Mic, ArrowRight, X, RotateCcw } from 'lucide-react';
 import {
   analyzeWordPronunciation,
   initializeWordProgress,
@@ -42,9 +42,6 @@ export default function WordByWordPractice({
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const referenceAudioRef = useRef<HTMLAudioElement | null>(null);
-  const userAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [lastRecordingUrl, setLastRecordingUrl] = useState<string | null>(null);
 
   const currentWord = words[currentWordIndex];
   const currentProgress = wordProgress[currentWordIndex];
@@ -77,10 +74,6 @@ export default function WordByWordPractice({
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-
-        // Save for playback
-        const url = URL.createObjectURL(audioBlob);
-        setLastRecordingUrl(url);
 
         await analyzeRecording(audioBlob);
 
@@ -137,25 +130,9 @@ export default function WordByWordPractice({
       setCurrentWordIndex(currentWordIndex + 1);
       setShowResult(false);
       setCurrentResult(null);
-      setLastRecordingUrl(null);
     } else {
       // All words completed
       onComplete();
-    }
-  };
-
-  // Play reference audio
-  const playReference = () => {
-    if (lineAudioUrl && referenceAudioRef.current) {
-      referenceAudioRef.current.play();
-    }
-  };
-
-  // Play user recording
-  const playUserRecording = () => {
-    if (lastRecordingUrl && userAudioRef.current) {
-      userAudioRef.current.src = lastRecordingUrl;
-      userAudioRef.current.play();
     }
   };
 
@@ -245,12 +222,7 @@ export default function WordByWordPractice({
                   : 'bg-purple-500/20 border border-purple-500/50'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-2xl">
-                  🎯
-                </div>
-                <p className="text-white font-medium">{currentResult.feedback}</p>
-              </div>
+              <p className="text-white font-medium text-center">{currentResult.feedback}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -328,28 +300,6 @@ export default function WordByWordPractice({
           </div>
         </div>
 
-        {/* Playback Buttons */}
-        <div className="flex gap-4 mb-8">
-          {lineAudioUrl && (
-            <button
-              onClick={playReference}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white"
-            >
-              <Volume2 className="w-5 h-5" />
-              Coach
-            </button>
-          )}
-          {lastRecordingUrl && (
-            <button
-              onClick={playUserRecording}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white"
-            >
-              <Volume2 className="w-5 h-5" />
-              You
-            </button>
-          )}
-        </div>
-
         {/* Next Word Button (shown when can progress) */}
         {canProgress && (
           <motion.button
@@ -398,10 +348,6 @@ export default function WordByWordPractice({
           )}
         </motion.button>
       </div>
-
-      {/* Hidden audio elements */}
-      {lineAudioUrl && <audio ref={referenceAudioRef} src={lineAudioUrl} />}
-      <audio ref={userAudioRef} />
     </div>
   );
 }

@@ -195,7 +195,7 @@ function generateFeedback(
 ): string {
   const feedbackMessages = {
     perfect: [
-      'Perfect! 🎉',
+      'Perfect!',
       'Excellent pronunciation!',
       'Outstanding! You nailed it!',
       'Flawless! Well done!',

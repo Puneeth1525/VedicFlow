@@ -880,7 +880,7 @@ export default function PracticePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white font-medium mb-1">
-                        🎯 Beginner Mode
+                        Beginner Mode
                       </p>
                       <p className="text-sm text-purple-300">
                         Practice one word at a time with instant feedback
