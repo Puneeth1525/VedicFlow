@@ -875,18 +875,18 @@ export default function PracticePage() {
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="mt-4 p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30"
+                  className="mt-4 mb-6 p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-white font-medium mb-1">
+                      <p className="text-white/70 font-medium mb-1">
                         Beginner Mode - Word by Word Analysis
                       </p>
-                      <p className="text-sm text-purple-300">
+                      <p className="text-sm text-purple-300/60">
                         Real-time pronunciation feedback for each word
                       </p>
                     </div>
-                    <div className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600/50 to-cyan-600/50 text-white font-medium shadow-lg">
+                    <div className="px-6 py-3 rounded-lg bg-white/5 text-white/40 font-medium cursor-not-allowed">
                       Coming Soon
                     </div>
                   </div>
