@@ -106,52 +106,76 @@ export function constructMantraMetadata(mantra: {
 }): Metadata {
   const mantraDescriptions: Record<string, string> = {
     'ganesha-gayatri':
-      'Learn and master the Ganesha Gayatri Mantra (ॐ एकदंताय विद्महे) with AI-powered swara analysis. Perfect your pronunciation and pitch with real-time feedback from the Ganapati Upanishad tradition.',
+      'Learn and master the Ganesha Gayatri Mantra (ॐ एकदंताय विद्महे वक्रतुण्डाय धीमहि तन्नो दन्तिः प्रचोदयात्) with AI-powered swara analysis. This sacred mantra from Ganapati Upanishad invokes Lord Ganesha for wisdom and removal of obstacles. Perfect your Sanskrit pronunciation, pitch accuracy, and traditional Vedic intonation with real-time AI feedback on udātta, anudātta, and swarita swaras.',
     'ganapati-prarthana':
-      'Perfect your chanting of the Ganapati Vedic Invocation from Rig Veda. Master this sacred prayer to Lord Ganesha with AI-guided pronunciation, swara detection, and real-time pitch analysis.',
+      'Perfect your chanting of the Ganapati Vedic Invocation (ॐ गं गणपतिं हवामहे) from Rig Veda. This ancient prayer to Lord Ganesha is traditionally chanted before beginning any important task. Master authentic Vedic pronunciation with AI-guided swara detection, learn proper syllable emphasis, and receive instant feedback on pitch variations. Track your progress as you develop perfect intonation of this powerful mantra.',
     'ganapathi-atharva-shirsham':
-      'Master the profound Ganapati Atharvashirsha from the Atharvaveda. Learn this powerful Vedic hymn dedicated to Lord Ganesha with advanced AI pronunciation coaching and swara feedback.',
+      'Master the profound Ganapati Atharvashirsha (ॐ नमस्ते गणपतये) from the Atharvaveda, one of the most sacred hymns dedicated to Lord Ganesha. This powerful Upanishadic text reveals the cosmic nature of Ganesha and is chanted for spiritual wisdom, success, and divine blessings. Learn complex Sanskrit pronunciation patterns, master intricate swara variations, and receive advanced AI coaching on pitch, tone, and rhythm for authentic Vedic recitation.',
   };
 
   const mantraKeywords: Record<string, string[]> = {
     'ganesha-gayatri': [
       'Ganesha Gayatri Mantra',
       'Ekadantaya Vidmahe',
+      'Vakratundaya Dhimahi',
       'Ganapati Upanishad',
       'Vakratundaya mantra',
-      'Ganesha meditation',
+      'Ganesha meditation mantra',
       'Sanskrit mantra learning',
       'Vedic chanting practice',
+      'Ganesha gayatri meaning',
+      'learn Ganesha mantra',
+      'obstacle removal mantra',
+      'wisdom mantra',
     ],
     'ganapati-prarthana': [
       'Ganapati Prarthana',
+      'Om Gam Ganapatim',
       'Rig Veda mantras',
       'Ganapati invocation',
-      'Vedic prayers',
+      'Vedic prayers to Ganesha',
       'Lord Ganesha mantras',
       'Sanskrit prayers',
       'Vedic recitation',
+      'Ganesha prayer',
+      'starting prayer',
+      'success mantra',
+      'auspicious beginning mantra',
     ],
     'ganapathi-atharva-shirsham': [
       'Ganapati Atharvashirsha',
+      'Ganapati Atharvasirsa',
       'Atharvaveda mantras',
-      'Ganesha Atharvasirsa',
       'Om Namaste Ganapataye',
+      'Ganesha Upanishad',
+      'Atharvashirsha meaning',
       'Vedic hymns',
       'Sanskrit sacred texts',
       'Atharva Veda chanting',
+      'Ganesha Atharvashirsha benefits',
+      'powerful Ganesha mantra',
+      'Ganapati stotra',
     ],
   };
 
+  const mantraOgImages: Record<string, string> = {
+    'ganesha-gayatri': `${siteConfig.url}/og-ganesha-gayatri.png`,
+    'ganapati-prarthana': `${siteConfig.url}/og-ganapati-prarthana.png`,
+    'ganapathi-atharva-shirsham': `${siteConfig.url}/og-ganapati-atharvashirsha.png`,
+  };
+
   return constructMetadata({
-    title: `${mantra.title} - Practice & Learn | VedicFlo`,
+    title: `${mantra.title} - Learn with AI Pronunciation & Swara Analysis | VedicFlo`,
     description: mantraDescriptions[mantra.id] || `Learn and perfect the ${mantra.title} from ${mantra.category} with AI-powered pronunciation and swara analysis. Real-time feedback for authentic Vedic chanting.`,
     url: `${siteConfig.url}/practice/${mantra.id}`,
+    image: mantraOgImages[mantra.id] || siteConfig.ogImage,
     keywords: [
       ...siteConfig.keywords,
       ...(mantraKeywords[mantra.id] || []),
       mantra.title,
       mantra.category,
+      'learn online',
+      'AI-powered learning',
     ],
   });
 }
@@ -200,33 +224,115 @@ export function getLearningResourceSchema(mantra: {
   category: string;
   audioUrl?: string;
 }) {
+  const mantraDetails: Record<string, { description: string; teaches: string[]; benefits: string[] }> = {
+    'ganesha-gayatri': {
+      description: 'Learn the Ganesha Gayatri Mantra from Ganapati Upanishad with AI-powered swara analysis and pronunciation feedback. Master authentic Vedic intonation patterns.',
+      teaches: [
+        'Correct Sanskrit pronunciation of Ganesha Gayatri',
+        'Udātta, Anudātta, and Swarita swara patterns',
+        'Traditional Vedic pitch modulation',
+        'Syllable-by-syllable accuracy',
+        'Real-time pronunciation feedback',
+      ],
+      benefits: [
+        'Removes obstacles in learning and life',
+        'Enhances wisdom and intelligence',
+        'Improves focus and concentration',
+        'Develops authentic Vedic chanting skills',
+      ],
+    },
+    'ganapati-prarthana': {
+      description: 'Perfect the Ganapati Vedic Invocation from Rig Veda with AI coaching. Master this auspicious prayer chanted before new beginnings.',
+      teaches: [
+        'Authentic Rig Vedic pronunciation',
+        'Proper swara emphasis and rhythm',
+        'Traditional chanting cadence',
+        'Pitch accuracy with AI feedback',
+        'Verse-by-verse mastery',
+      ],
+      benefits: [
+        'Ensures auspicious beginnings',
+        'Invokes success and prosperity',
+        'Develops clarity of speech',
+        'Strengthens Sanskrit pronunciation',
+      ],
+    },
+    'ganapathi-atharva-shirsham': {
+      description: 'Master the profound Ganapati Atharvashirsha from Atharvaveda. Learn this powerful Upanishadic hymn with advanced AI pronunciation analysis.',
+      teaches: [
+        'Complex Atharvaveda pronunciation patterns',
+        'Intricate swara variations and transitions',
+        'Extended mantra recitation techniques',
+        'Advanced pitch control and modulation',
+        'Traditional Upanishadic chanting style',
+      ],
+      benefits: [
+        'Deep spiritual wisdom and insight',
+        'Powerful protection and blessings',
+        'Success in all endeavors',
+        'Mastery of advanced Vedic recitation',
+      ],
+    },
+  };
+
+  const details = mantraDetails[mantra.id] || {
+    description: `Learn and practice ${mantra.title} from ${mantra.category} with AI-powered pronunciation feedback`,
+    teaches: ['Correct pronunciation', 'Swara patterns', 'Vedic intonation'],
+    benefits: ['Spiritual growth', 'Sanskrit mastery'],
+  };
+
   return {
     '@context': 'https://schema.org',
     '@type': 'LearningResource',
     name: mantra.title,
-    description: `Learn and practice ${mantra.title} from ${mantra.category} with AI-powered pronunciation feedback`,
+    description: details.description,
     educationalLevel: 'Beginner to Advanced',
     learningResourceType: 'Interactive Exercise',
-    inLanguage: 'sa',
-    about: {
-      '@type': 'Thing',
-      name: 'Vedic Chanting',
-      description: 'Ancient Indian spiritual practice of reciting Vedic mantras',
-    },
+    inLanguage: ['sa', 'en'],
+    teaches: details.teaches,
+    about: [
+      {
+        '@type': 'Thing',
+        name: 'Vedic Chanting',
+        description: 'Ancient Indian spiritual practice of reciting Vedic mantras with proper pronunciation and pitch',
+      },
+      {
+        '@type': 'Thing',
+        name: mantra.title,
+        description: `Sacred mantra from ${mantra.category}`,
+      },
+    ],
     isAccessibleForFree: false,
     url: `${siteConfig.url}/practice/${mantra.id}`,
     ...(mantra.audioUrl && {
       audio: {
         '@type': 'AudioObject',
         name: `${mantra.title} Reference Audio`,
+        description: 'Professional Vedic recitation for learning and practice',
         contentUrl: `${siteConfig.url}${mantra.audioUrl}`,
+        encodingFormat: 'audio/mpeg',
       },
     }),
     educationalAlignment: {
       '@type': 'AlignmentObject',
       alignmentType: 'educationalSubject',
       targetName: 'Vedic Studies',
+      educationalFramework: 'Traditional Vedic Education',
     },
+    audience: {
+      '@type': 'EducationalAudience',
+      educationalRole: 'student',
+    },
+    provider: {
+      '@type': 'Organization',
+      name: siteConfig.name,
+      url: siteConfig.url,
+    },
+    hasPart: details.teaches.map((skill) => ({
+      '@type': 'LearningResource',
+      name: skill,
+      learningResourceType: 'Skill',
+    })),
   };
 }
 
