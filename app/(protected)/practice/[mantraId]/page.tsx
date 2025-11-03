@@ -15,7 +15,7 @@ import {
   SyllableWithSwara,
   SwaraType,
 } from '@/lib/pitchDetection';
-import { analyzeMantraChanting, SyllableAnalysisResult } from '@/lib/syllableAnalyzer';
+import { analyzeMantraChanting, SyllableAnalysisResult, DetailedFeedback } from '@/lib/syllableAnalyzer';
 import { loadMantra } from '@/lib/mantraLoader';
 import { MantraData } from '@/lib/types/mantra';
 
@@ -40,6 +40,7 @@ export default function PracticePage() {
   const [lastRecordingBlob, setLastRecordingBlob] = useState<Blob | null>(null);
   const [lastRecordingScore, setLastRecordingScore] = useState<number | null>(null);
   const [lastRecordingDuration, setLastRecordingDuration] = useState<number>(0);
+  const [lastDetailedFeedback, setLastDetailedFeedback] = useState<DetailedFeedback | null>(null);
 
   const [practiceMode, setPracticeMode] = useState<'line' | 'paragraph' | 'full'>('line');
   const [selectedChapter, setSelectedChapter] = useState(1);
@@ -405,6 +406,7 @@ export default function PracticePage() {
       setLastRecordingBlob(null);
       setLastRecordingScore(null);
       setLastRecordingDuration(0);
+      setLastDetailedFeedback(null);
 
       // Start media recorder for playback
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -503,6 +505,11 @@ export default function PracticePage() {
 
             if (result.feedback.length > 0) {
               console.log('Feedback:', result.feedback.join('; '));
+            }
+
+            // Store detailed feedback for saving to database
+            if (result.detailedFeedback) {
+              setLastDetailedFeedback(result.detailedFeedback);
             }
           } else if (referencePitchData.length > 0 && currentParagraph) {
             // Fallback to pitch-only analysis
@@ -604,7 +611,12 @@ export default function PracticePage() {
   };
 
   // Save recording to database (only for Full Chant mode)
-  const saveRecordingToDatabase = async (audioBlob: Blob, score: number, durationMs: number) => {
+  const saveRecordingToDatabase = async (
+    audioBlob: Blob,
+    score: number,
+    durationMs: number,
+    detailedFeedback: DetailedFeedback | null
+  ) => {
     if (!user?.id || !mantraId) {
       console.error('Missing user ID or mantra ID');
       setSaveError('Unable to save: missing user or mantra information');
@@ -662,6 +674,7 @@ export default function PracticePage() {
           practiceId: practice.id,
           audioUrl,
           score,
+          detailedFeedback,
         }),
       });
 
@@ -982,7 +995,7 @@ export default function PracticePage() {
                             {/* Swara symbol above with feedback - just colored arrow, no box */}
                             <div className={`absolute -top-8 left-1/2 -translate-x-1/2 transition-all ${
                               hasSwaraFeedback
-                                ? `${getSwaraFeedbackColor(comprehensiveResult.accuracy).split(' ')[0]} text-3xl font-bold drop-shadow-lg`
+                                ? `${getSwaraFeedbackColor(comprehensiveResult.swaraAccuracy).split(' ')[0]} text-3xl font-bold drop-shadow-lg`
                                 : 'text-gray-400 text-2xl'
                             }`}>
                               {getSwaraSymbol(syllable.swara)}
@@ -1093,7 +1106,7 @@ export default function PracticePage() {
                                     {/* Swara symbol above syllable */}
                                     <div className={`absolute -top-7 left-1/2 -translate-x-1/2 transition-all ${
                                       hasSwaraFeedback
-                                        ? `${getSwaraFeedbackColor(comprehensiveResult.accuracy).split(' ')[0]} text-2xl font-bold drop-shadow-lg`
+                                        ? `${getSwaraFeedbackColor(comprehensiveResult.swaraAccuracy).split(' ')[0]} text-2xl font-bold drop-shadow-lg`
                                         : 'text-gray-400 text-xl'
                                     }`}>
                                       {getSwaraSymbol(syllable.swara)}
@@ -1202,7 +1215,12 @@ export default function PracticePage() {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       if (lastRecordingBlob && lastRecordingScore !== null) {
-                        saveRecordingToDatabase(lastRecordingBlob, lastRecordingScore, lastRecordingDuration);
+                        saveRecordingToDatabase(
+                          lastRecordingBlob,
+                          lastRecordingScore,
+                          lastRecordingDuration,
+                          lastDetailedFeedback
+                        );
                       }
                     }}
                     disabled={isSaving}
@@ -1376,7 +1394,7 @@ export default function PracticePage() {
             </AnimatePresence>
 
             {/* Feedback Section - Pronunciation & Swara Errors */}
-            {comprehensiveResults.length > 0 && analysisMode === 'phonetic' && (
+            {lastDetailedFeedback && analysisMode === 'phonetic' && (
               <AnimatePresence>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -1385,52 +1403,72 @@ export default function PracticePage() {
                 >
                   <h3 className="text-lg font-semibold mb-4 text-purple-300 flex items-center gap-2">
                     <span className="text-2xl">💡</span>
-                    Feedback
+                    Detailed Feedback
                   </h3>
 
-                  {/* Pronunciation Errors */}
+                  {/* Summary Stats */}
+                  <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/10">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-purple-300">Pronunciation:</span>
+                        <span className="ml-2 text-white font-semibold">
+                          {lastDetailedFeedback.summary.correctPronunciation}/{lastDetailedFeedback.summary.totalSyllables}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-purple-300">Swaras:</span>
+                        <span className="ml-2 text-white font-semibold">
+                          {lastDetailedFeedback.summary.correctSwaras}/{lastDetailedFeedback.summary.totalSyllables}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pronunciation Mistakes */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">📝 Pronunciation</h4>
-                    <div className="space-y-2 text-sm">
-                      {comprehensiveResults
-                        .filter(r => !r.pronunciationMatch || r.pronunciationScore < 70)
-                        .slice(0, 3)
-                        .map((result, idx) => (
+                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">
+                      📝 Pronunciation Mistakes ({lastDetailedFeedback.pronunciationMistakes.length})
+                    </h4>
+                    <div className="space-y-2 text-sm max-h-60 overflow-y-auto">
+                      {lastDetailedFeedback.pronunciationMistakes.length > 0 ? (
+                        lastDetailedFeedback.pronunciationMistakes.map((mistake, idx) => (
                           <motion.div
                             key={idx}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.1 }}
+                            transition={{ delay: idx * 0.05 }}
                             className="p-2 rounded-lg bg-white/5 text-purple-200"
                           >
-                            Heard &ldquo;<span className="text-orange-300">{result.transcribedText}</span>&rdquo; instead of &ldquo;<span className="text-cyan-300">{result.expectedText}</span>&rdquo;
+                            <span className="text-purple-400">#{mistake.position}</span>{' '}
+                            Heard &ldquo;<span className="text-orange-300">{mistake.heard}</span>&rdquo; instead of &ldquo;<span className="text-cyan-300">{mistake.expected}</span>&rdquo;
                           </motion.div>
-                        ))}
-                      {comprehensiveResults.filter(r => !r.pronunciationMatch || r.pronunciationScore < 70).length === 0 && (
+                        ))
+                      ) : (
                         <p className="text-green-400 text-sm">✓ Perfect pronunciation!</p>
                       )}
                     </div>
                   </div>
 
-                  {/* Swara Errors */}
+                  {/* Swara Mistakes */}
                   <div>
-                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">🎵 Swaras</h4>
-                    <div className="space-y-2 text-sm">
-                      {comprehensiveResults
-                        .filter(r => !r.swaraMatch)
-                        .slice(0, 3)
-                        .map((result, idx) => (
+                    <h4 className="text-sm font-semibold text-cyan-300 mb-2">
+                      🎵 Swara Mistakes ({lastDetailedFeedback.swaraMistakes.length})
+                    </h4>
+                    <div className="space-y-2 text-sm max-h-60 overflow-y-auto">
+                      {lastDetailedFeedback.swaraMistakes.length > 0 ? (
+                        lastDetailedFeedback.swaraMistakes.map((mistake, idx) => (
                           <motion.div
                             key={idx}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.1 }}
+                            transition={{ delay: idx * 0.05 }}
                             className="p-2 rounded-lg bg-white/5 text-purple-200"
                           >
-                            &ldquo;<span className="text-xl">{result.expectedText}</span>&rdquo; is <span className="text-cyan-300">{result.expectedSwara}</span> but heard <span className="text-orange-300">{result.detectedSwara}</span>
+                            <span className="text-purple-400">#{mistake.position}</span>{' '}
+                            &ldquo;<span className="text-xl">{mistake.syllable}</span>&rdquo; should be <span className="text-cyan-300">{mistake.expectedSwara}</span> but heard <span className="text-orange-300">{mistake.detectedSwara}</span>
                           </motion.div>
-                        ))}
-                      {comprehensiveResults.filter(r => !r.swaraMatch).length === 0 && (
+                        ))
+                      ) : (
                         <p className="text-green-400 text-sm">✓ Perfect swara accuracy!</p>
                       )}
                     </div>

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { practiceId, audioUrl, score } = body;
+    const { practiceId, audioUrl, score, detailedFeedback } = body;
 
     if (!practiceId || !audioUrl || score === undefined) {
       return NextResponse.json(
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
         score,
         submittedForReview: false,
         reviewStatus: 'not-submitted',
+        ...(detailedFeedback && { detailedFeedback }),
       },
     });
 

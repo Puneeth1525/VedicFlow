@@ -94,6 +94,7 @@ model Recording {
   submittedForReview  Boolean  @default(false)
   reviewStatus        String   @default("not-submitted") // not-submitted, under-review, reviewed
   mentorRemarks       String?
+  detailedFeedback    Json?    // Detailed pronunciation and swara mistakes
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

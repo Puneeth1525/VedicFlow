@@ -198,6 +198,7 @@ export function extractSyllableFeatures(
   if (voicedFrames.length < 3) {
     // Not enough voiced data - return defaults
     return {
+      canonicalIndex,
       syllableText,
       startTime,
       endTime,
@@ -208,7 +209,18 @@ export function extractSyllableFeatures(
       slope_st_per_sec: 0,
       duration_ms: (endTime - startTime) * 1000,
       energy_rms: 0,
-      voicedRatio: 0
+      voicedRatio: 0,
+      delta_start: 0,
+      delta_end: 0,
+      baseline_st: 0,
+      cross_jump: 0,
+      cross_slope: 0,
+      detectedSwara: 'udhaatha' as SwaraType,
+      confidence: 0,
+      detectedSwaraCorrected: 'udhaatha' as SwaraType,
+      isAcceptable: false,
+      gradable: false,
+      sustainHighFlag: false
     };
   }
 

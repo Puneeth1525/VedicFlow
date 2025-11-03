@@ -24,6 +24,30 @@ export interface SyllableAnalysisResult {
 
   overallScore: number;
   accuracy: 'perfect' | 'good' | 'fair' | 'poor';
+  swaraAccuracy: 'perfect' | 'good' | 'fair' | 'poor'; // Swara-only accuracy for arrow colors
+}
+
+export interface DetailedFeedback {
+  pronunciationMistakes: Array<{
+    syllable: string;
+    expected: string;
+    heard: string;
+    position: number;
+  }>;
+  swaraMistakes: Array<{
+    syllable: string;
+    expectedSwara: string;
+    detectedSwara: string;
+    position: number;
+  }>;
+  summary: {
+    pronunciationScore: number;
+    swaraScore: number;
+    overallScore: number;
+    totalSyllables: number;
+    correctPronunciation: number;
+    correctSwaras: number;
+  };
 }
 
 export interface ComprehensiveAnalysisResult {
@@ -33,7 +57,8 @@ export interface ComprehensiveAnalysisResult {
   pronunciationAccuracy: number;
   swaraAccuracy?: number;
   overallScore: number;
-  feedback: string[];
+  feedback: string[];  // Kept for backward compatibility
+  detailedFeedback: DetailedFeedback;  // New detailed feedback
 }
 
 /**
@@ -107,10 +132,43 @@ export async function analyzeMantraChanting(
     ? Math.round((swaraMatches / swaraResults.length) * 100)
     : 0;
 
-  // Step 7: Generate feedback
-  const feedback: string[] = [];
+  // Step 7: Generate detailed feedback
+  const pronunciationMistakes = syllableResults
+    .filter(r => !r.pronunciationMatch || r.pronunciationScore < 70)
+    .map(r => ({
+      syllable: r.expectedText,
+      expected: r.expectedText,
+      heard: r.transcribedText,
+      position: r.syllableIndex + 1
+    }));
 
-  // More lenient feedback thresholds to account for phonetically similar sounds
+  const swaraMistakes = syllableResults
+    .filter(r => !r.swaraMatch)
+    .map(r => ({
+      syllable: r.expectedText,
+      expectedSwara: getSwaraDisplayName(r.expectedSwara),
+      detectedSwara: getSwaraDisplayName(r.detectedSwara),
+      position: r.syllableIndex + 1
+    }));
+
+  const correctPronunciation = syllableResults.filter(r => r.pronunciationMatch && r.pronunciationScore >= 70).length;
+  const correctSwaras = syllableResults.filter(r => r.swaraMatch).length;
+
+  const detailedFeedback: DetailedFeedback = {
+    pronunciationMistakes,
+    swaraMistakes,
+    summary: {
+      pronunciationScore: overallSimilarity,
+      swaraScore: swaraAccuracy,
+      overallScore: overallSimilarity,
+      totalSyllables: syllableResults.length,
+      correctPronunciation,
+      correctSwaras
+    }
+  };
+
+  // Simple feedback for backward compatibility
+  const feedback: string[] = [];
   if (overallSimilarity >= 80) {
     feedback.push('Excellent pronunciation! 🎉');
   } else if (overallSimilarity >= 65) {
@@ -121,13 +179,6 @@ export async function analyzeMantraChanting(
     feedback.push('Keep practicing! Listen carefully to the reference audio.');
   }
 
-  // Add akshara-specific feedback
-  const incorrectAksharas = syllableResults.filter(r => !r.pronunciationMatch);
-  if (incorrectAksharas.length > 0 && incorrectAksharas.length <= 3) {
-    const akharaTexts = incorrectAksharas.map(r => syllables[r.syllableIndex].text);
-    feedback.push(`Focus on: ${akharaTexts.join(', ')}`);
-  }
-
   return {
     syllableResults,
     transcribedText: transcriptionResult.transcript,
@@ -135,8 +186,27 @@ export async function analyzeMantraChanting(
     pronunciationAccuracy: overallSimilarity,
     swaraAccuracy,
     overallScore: overallSimilarity,
-    feedback
+    feedback,
+    detailedFeedback
   };
+}
+
+/**
+ * Convert swara type to display name
+ */
+function getSwaraDisplayName(swara: SwaraType): string {
+  switch (swara) {
+    case 'udhaatha':
+      return 'Udātta';
+    case 'anudhaatha':
+      return 'Anudātta';
+    case 'swarita':
+      return 'Svarita';
+    case 'dheerga':
+      return 'Dīrgha Svarita';
+    default:
+      return swara;
+  }
 }
 
 /**
@@ -170,7 +240,8 @@ function matchIndividualAksharas(
       swaraScore: 0,
       swaraMatch: false,
       overallScore: 100,
-      accuracy: 'perfect' as const
+      accuracy: 'perfect' as const,
+      swaraAccuracy: 'poor' as const
     }));
   }
 
@@ -194,7 +265,8 @@ function matchIndividualAksharas(
       swaraScore: 0,
       swaraMatch: false,
       overallScore: overallSimilarity,
-      accuracy: 'perfect' as const  // Show all as green when overall is good
+      accuracy: 'perfect' as const,  // Show all as green when overall is good
+      swaraAccuracy: 'poor' as const
     }));
   }
 
@@ -237,7 +309,8 @@ function matchIndividualAksharas(
       overallScore: pronunciationScore,
       accuracy: pronunciationScore >= 70 ? 'perfect' :  // Green for >= 70%
                 pronunciationScore >= 50 ? 'fair' :      // Orange for 50-69%
-                'poor'                                   // Red only for < 50%
+                'poor',                                  // Red only for < 50%
+      swaraAccuracy: 'poor'
     });
 
     // Move position forward
@@ -359,7 +432,8 @@ function combineResults(
         swaraScore: 0,
         swaraMatch: false,
         overallScore: pronResult.pronunciationScore,
-        accuracy: pronResult.accuracy
+        accuracy: pronResult.accuracy,
+        swaraAccuracy: 'poor' as const
       };
     }
 
@@ -367,6 +441,12 @@ function combineResults(
     const combinedScore = Math.round(
       pronResult.pronunciationScore * 0.6 + swaraResult.swaraScore * 0.4
     );
+
+    // Swara-only accuracy (used for arrow colors)
+    const swaraAccuracy: 'perfect' | 'good' | 'fair' | 'poor' =
+      swaraResult.swaraScore >= 90 ? 'perfect' :
+      swaraResult.swaraScore >= 75 ? 'good' :
+      swaraResult.swaraScore >= 60 ? 'fair' : 'poor';
 
     return {
       ...pronResult,
@@ -376,7 +456,8 @@ function combineResults(
       overallScore: combinedScore,
       accuracy: combinedScore >= 90 ? 'perfect' :
                 combinedScore >= 75 ? 'good' :
-                combinedScore >= 60 ? 'fair' : 'poor'
+                combinedScore >= 60 ? 'fair' : 'poor',
+      swaraAccuracy
     };
   });
 }
@@ -397,12 +478,25 @@ function createEmptyResult(syllables: SyllableWithSwara[]): ComprehensiveAnalysi
       swaraScore: 0,
       swaraMatch: false,
       overallScore: 0,
-      accuracy: 'poor'
+      accuracy: 'poor',
+      swaraAccuracy: 'poor'
     })),
     transcribedText: '',
     expectedText: syllables.map(s => s.text).join(''),
     pronunciationAccuracy: 0,
     overallScore: 0,
-    feedback: ['Audio transcription failed. Please try again.']
+    feedback: ['Audio transcription failed. Please try again.'],
+    detailedFeedback: {
+      pronunciationMistakes: [],
+      swaraMistakes: [],
+      summary: {
+        pronunciationScore: 0,
+        swaraScore: 0,
+        overallScore: 0,
+        totalSyllables: syllables.length,
+        correctPronunciation: 0,
+        correctSwaras: 0
+      }
+    }
   };
 }
