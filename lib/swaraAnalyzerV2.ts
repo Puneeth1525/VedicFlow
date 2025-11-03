@@ -611,17 +611,31 @@ export async function analyzeSwaras(
   syllableTexts: string[] = [],
   canonicalSwaras: SwaraType[] = []
 ): Promise<AnalysisResult> {
-  // For MVP: Simple syllable segmentation based on energy
-  // In production: Use proper forced alignment
-  const syllableTimings = segmentIntoSyllables(audioBuffer);
+  // Use different segmentation strategies based on whether we have canonical syllables
+  let syllableTimings: Array<{ start: number; end: number }>;
 
-  // Limit to canonical length if provided
-  const numSyllables = canonicalSwaras.length > 0
-    ? Math.min(syllableTimings.length, canonicalSwaras.length)
-    : syllableTimings.length;
+  if (canonicalSwaras.length > 0) {
+    // We know how many syllables to expect - use even distribution
+    // This is more reliable than energy-based segmentation which can merge syllables
+    const duration = audioBuffer.duration;
+    const syllableDuration = duration / canonicalSwaras.length;
+
+    syllableTimings = canonicalSwaras.map((_, i) => ({
+      start: i * syllableDuration,
+      end: (i + 1) * syllableDuration
+    }));
+
+    console.log(`📏 Using even distribution: ${canonicalSwaras.length} syllables × ${(syllableDuration * 1000).toFixed(0)}ms each`);
+  } else {
+    // No canonical syllables - fall back to energy-based segmentation
+    syllableTimings = segmentIntoSyllables(audioBuffer);
+    console.log(`🔍 Using energy-based segmentation: ${syllableTimings.length} segments detected`);
+  }
+
+  const numSyllables = syllableTimings.length;
 
   // Extract features for each syllable
-  const rawFeatures = syllableTimings.slice(0, numSyllables).map((timing, i) => {
+  const rawFeatures = syllableTimings.map((timing, i) => {
     const syllableText = i < syllableTexts.length ? syllableTexts[i] : `S${i + 1}`;
     return extractSyllableFeatures(
       audioBuffer,

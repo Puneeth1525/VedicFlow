@@ -348,18 +348,25 @@ async function analyzeSwaras(
 
       // Use corrected swara and tolerance-based matching from V2
       const detectedSwara = v2Syl.detectedSwaraCorrected;
-      const isAcceptable = v2Syl.isAcceptable && v2Syl.gradable;
 
-      // Calculate score based on tolerance matching (not strict equality)
-      const score = isAcceptable ? 95 : 40;
+      // swaraMatch should ONLY check if swara is acceptable, not gradability
+      // Gradability affects scoring but shouldn't create false mistakes
+      const swaraMatch = v2Syl.isAcceptable;
+      const isGradable = v2Syl.gradable;
+
+      // Calculate score based on tolerance matching AND gradability
+      // Non-gradable syllables (too short/low confidence) get lower scores but aren't marked as mistakes
+      const baseScore = swaraMatch ? 95 : 40;
+      const score = isGradable ? baseScore : Math.min(baseScore, 60);
+
       const accuracy = score >= 90 ? 'perfect' :
                       score >= 75 ? 'good' :
                       score >= 60 ? 'fair' : 'poor';
 
       console.log(`📊 [${v2Syl.syllableText}] ` +
                   `expected=${expectedSwara}, detected=${detectedSwara}, ` +
-                  `acceptable=${isAcceptable ? '✅' : '❌'}, ` +
-                  `gradable=${v2Syl.gradable}, score=${score}%`);
+                  `match=${swaraMatch ? '✅' : '❌'}, ` +
+                  `gradable=${isGradable}, score=${score}%`);
 
       return {
         syllableIndex: v2Syl.canonicalIndex,
@@ -370,7 +377,7 @@ async function analyzeSwaras(
         pronunciationMatch: true,
         detectedSwara,
         swaraScore: score,
-        swaraMatch: isAcceptable,
+        swaraMatch,  // Only based on swara correctness, not gradability
         overallScore: score,
         accuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor',
         swaraAccuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor'
