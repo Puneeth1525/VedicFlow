@@ -14,6 +14,21 @@
 
 export type SwaraType = 'udhaatha' | 'anudhaatha' | 'swarita' | 'dheerga';
 
+// Core acoustic features extracted from audio (before analysis)
+export type CoreFeatures = {
+  syllableText: string;
+  startTime: number;
+  endTime: number;
+  f0_start_hz: number;
+  f0_end_hz: number;
+  f0_start_st: number;
+  f0_end_st: number;
+  slope_st_per_sec: number;
+  duration_ms: number;
+  energy_rms: number;
+  voicedRatio: number;
+};
+
 export interface SyllableFeatures {
   canonicalIndex: number;   // Index into canonical syllable sequence
   syllableText: string;
@@ -186,7 +201,7 @@ export function extractSyllableFeatures(
   syllableText: string,
   startTime: number,
   endTime: number
-): Pick<SyllableFeatures, 'syllableText' | 'startTime' | 'endTime' | 'f0_start_hz' | 'f0_end_hz' | 'f0_start_st' | 'f0_end_st' | 'slope_st_per_sec' | 'duration_ms' | 'energy_rms' | 'voicedRatio'> {
+): CoreFeatures {
   // Extract pitch contour
   const rawContour = extractPitchContour(audioBuffer, startTime, endTime);
   const smoothContour = smoothPitchContour(rawContour);
@@ -265,7 +280,7 @@ export function extractSyllableFeatures(
  * This prevents svarita peaks and anudātta dips from polluting the baseline
  */
 export function computeRollingBaselines(
-  syllables: Array<Omit<SyllableFeatures, 'detectedSwara' | 'confidence' | 'delta_start' | 'delta_end' | 'baseline_st' | 'sustainHighFlag' | 'cross_jump' | 'cross_slope' | 'canonicalIndex'>>,
+  syllables: CoreFeatures[],
   canonicalSwaras: SwaraType[]
 ): number[] {
   const baselines: number[] = [];

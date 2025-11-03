@@ -372,7 +372,8 @@ async function analyzeSwaras(
         swaraScore: score,
         swaraMatch: isAcceptable,
         overallScore: score,
-        accuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor'
+        accuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor',
+        swaraAccuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor'
       };
     });
 
@@ -405,7 +406,8 @@ async function analyzeSwaras(
       swaraScore: 0,
       swaraMatch: false,
       overallScore: 0,
-      accuracy: 'poor' as const
+      accuracy: 'poor' as const,
+      swaraAccuracy: 'poor' as const
     }));
   }
 }
