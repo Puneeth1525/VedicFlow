@@ -23,7 +23,7 @@ export async function transcribeAudioToText(
 
     // Create form data
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.wav');
+    formData.append('audio', audioBlob, 'recording.webm');
 
     // Call our API route
     const response = await fetch('/api/transcribe', {

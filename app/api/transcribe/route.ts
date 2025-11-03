@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
 
     // Create form data for OpenAI
     const openaiFormData = new FormData();
-    openaiFormData.append('file', audioFile, 'audio.wav');
+    // Whisper supports webm, mp3, mp4, mpeg, mpga, m4a, wav, and webm
+    openaiFormData.append('file', audioFile, 'audio.webm');
     openaiFormData.append('model', 'whisper-1');
     // Note: Whisper doesn't support 'sa' (Sanskrit) - using 'hi' (Hindi) for Devanagari script
     // or omitting language to let Whisper auto-detect

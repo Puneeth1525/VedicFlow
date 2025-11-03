@@ -151,7 +151,7 @@ export default function WordByWordPractice({
   const completionPercentage = getCompletionPercentage(wordProgress);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col">
       {/* Animated Particles Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {particles.map((particle) => (
