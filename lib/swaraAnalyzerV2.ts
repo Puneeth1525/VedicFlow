@@ -186,7 +186,7 @@ export function extractSyllableFeatures(
   syllableText: string,
   startTime: number,
   endTime: number
-): Omit<SyllableFeatures, 'detectedSwara' | 'confidence' | 'delta_start' | 'delta_end' | 'baseline_st' | 'sustainHighFlag'> {
+): Pick<SyllableFeatures, 'syllableText' | 'startTime' | 'endTime' | 'f0_start_hz' | 'f0_end_hz' | 'f0_start_st' | 'f0_end_st' | 'slope_st_per_sec' | 'duration_ms' | 'energy_rms' | 'voicedRatio'> {
   // Extract pitch contour
   const rawContour = extractPitchContour(audioBuffer, startTime, endTime);
   const smoothContour = smoothPitchContour(rawContour);
