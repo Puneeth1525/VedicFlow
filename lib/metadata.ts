@@ -5,7 +5,7 @@ export const siteConfig = {
   title: 'VedicFlo - Master Vedic Chanting with AI-Powered Precision',
   description: 'Learn and perfect Vedic chanting with AI-powered pronunciation and swara analysis. Master ancient Sanskrit mantras with real-time feedback on pitch, tone, and accuracy.',
   url: 'https://vedic-flow.vercel.app',
-  ogImage: 'https://vedic-flow.vercel.app/og-image.png',
+  ogImage: 'https://vedic-flow.vercel.app/logo.png',
   keywords: [
     'Vedic chanting',
     'Sanskrit mantras',
