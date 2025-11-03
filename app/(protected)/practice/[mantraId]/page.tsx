@@ -18,6 +18,7 @@ import {
 import { analyzeMantraChanting, SyllableAnalysisResult, DetailedFeedback } from '@/lib/syllableAnalyzer';
 import { loadMantra } from '@/lib/mantraLoader';
 import { MantraData } from '@/lib/types/mantra';
+import WordByWordPractice from '@/components/WordByWordPractice';
 
 export default function PracticePage() {
   const params = useParams();
@@ -62,6 +63,7 @@ export default function PracticePage() {
   const [analysisMode, setAnalysisMode] = useState<'phonetic' | 'pitch'>('phonetic');
   const [advancedMode, setAdvancedMode] = useState(false); // Toggle for word-by-word display
   const [audioProgress, setAudioProgress] = useState(0); // Current audio time in seconds
+  const [showWordByWord, setShowWordByWord] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -172,6 +174,36 @@ export default function PracticePage() {
         syllables: wordSyllables,
         startIndex: startIndex
       });
+    }
+
+    return words;
+  };
+
+  // Extract words from current line for word-by-word practice
+  const getWordsFromCurrentLine = () => {
+    if (!currentLine) return [];
+
+    const words: Array<{ text: string; romanization: string }> = [];
+    let currentWord = { text: '', romanization: '' };
+
+    currentLine.sanskrit.forEach((syllable, index) => {
+      // Check if this syllable is a word boundary
+      const isWordBoundary = currentLine.wordBoundaries?.includes(index);
+
+      if (isWordBoundary && currentWord.text) {
+        // Push previous word
+        words.push(currentWord);
+        currentWord = { text: '', romanization: '' };
+      }
+
+      // Add syllable to current word
+      currentWord.text += syllable.text;
+      currentWord.romanization += syllable.romanization;
+    });
+
+    // Push last word
+    if (currentWord.text) {
+      words.push(currentWord);
     }
 
     return words;
@@ -837,6 +869,34 @@ export default function PracticePage() {
                   Full Chant
                 </motion.button>
               </div>
+
+              {/* Word by Word Mode - Only show in Line mode */}
+              {practiceMode === 'line' && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="mt-4 p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium mb-1">
+                        🎯 Beginner Mode
+                      </p>
+                      <p className="text-sm text-purple-300">
+                        Practice one word at a time with instant feedback
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowWordByWord(true)}
+                      className="px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-medium transition-all shadow-lg"
+                    >
+                      Start Word-by-Word
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Chapter Selector - only show if mantra has chapters */}
               {hasChapters() && practiceMode !== 'full' && (
@@ -1510,6 +1570,19 @@ export default function PracticePage() {
           </div>
         </div>
       </div>
+
+      {/* Word-by-Word Practice Modal */}
+      {showWordByWord && currentLine && (
+        <WordByWordPractice
+          words={getWordsFromCurrentLine()}
+          lineAudioUrl={mantra?.audioUrl}
+          onComplete={() => {
+            setShowWordByWord(false);
+            // Optionally auto-advance to next line
+          }}
+          onExit={() => setShowWordByWord(false)}
+        />
+      )}
 
       {/* Hidden audio element */}
       <audio ref={audioRef} src={mantra.audioUrl} onEnded={() => setIsPlaying(false)} />
