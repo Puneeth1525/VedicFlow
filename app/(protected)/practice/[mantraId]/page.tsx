@@ -880,20 +880,15 @@ export default function PracticePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white font-medium mb-1">
-                        Beginner Mode
+                        Beginner Mode - Word by Word Analysis
                       </p>
                       <p className="text-sm text-purple-300">
-                        Practice one word at a time with instant feedback
+                        Real-time pronunciation feedback for each word
                       </p>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowWordByWord(true)}
-                      className="px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-medium transition-all shadow-lg"
-                    >
-                      Start Word-by-Word
-                    </motion.button>
+                    <div className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600/50 to-cyan-600/50 text-white font-medium shadow-lg">
+                      Coming Soon
+                    </div>
                   </div>
                 </motion.div>
               )}
