@@ -1,14 +1,16 @@
 {
   "id": "ganapati-prarthana",
-  "title": "Gaṇapati Prārthana (Ṛg Veda)",
+  "title": "Gaṇapati Vedic Invocation (Ṛg Veda)",
   "category": "Ṛg Veda",
-  "audioUrl": "",
+  "audioUrl": "/audio/Ganapathi_vedic_invocation_mantra.mp3",
   "paragraphs": [
     {
       "id": 1,
       "lines": [
         {
           "id": 1,
+          "audioStartTime": 0,
+          "audioEndTime": 18,
           "wordBoundaries": [0, 1, 4, 6, 10, 13, 19],
           "sanskrit": [
             { "text": "ॐ", "swara": "udhaatha", "romanization": "om" },
@@ -19,7 +21,8 @@
             { "text": "ग", "swara": "anudhaatha", "romanization": "ga" },
             { "text": "ण", "swara": "udhaatha", "romanization": "ṇa" },
             { "text": "प", "swara": "swarita", "romanization": "pa" },
-            { "text": "तिं", "swara": "udhaatha", "romanization": "tiṃ" },
+            { "text": "ति", "swara": "udhaatha", "romanization": "ti" },
+            { "text": "गुम्", "swara": "udhaatha", "romanization": "gum" },
             { "text": "ह", "swara": "udhaatha", "romanization": "ha" },
             { "text": "वा", "swara": "udhaatha", "romanization": "vā" },
             { "text": "म", "swara": "udhaatha", "romanization": "ma" },
@@ -40,6 +43,8 @@
         },
         {
           "id": 2,
+          "audioStartTime": 18,
+          "audioEndTime": 33,
           "wordBoundaries": [0, 5, 10, 16, 17, 20],
           "sanskrit": [
             { "text": "ज्ये", "swara": "anudhaatha", "romanization": "jye" },
