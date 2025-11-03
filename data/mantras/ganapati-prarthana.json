@@ -13,7 +13,7 @@
           "audioEndTime": 18,
           "wordBoundaries": [0, 1, 4, 6, 10, 13, 19],
           "sanskrit": [
-            { "text": "ॐ", "swara": "udhaatha", "romanization": "om" },
+            { "text": "ओम्", "swara": "udhaatha", "romanization": "om" },
             { "text": "ग", "swara": "anudhaatha", "romanization": "ga" },
             { "text": "णा", "swara": "udhaatha", "romanization": "ṇā" },
             { "text": "नां", "swara": "dheerga", "romanization": "nāṃ" },
