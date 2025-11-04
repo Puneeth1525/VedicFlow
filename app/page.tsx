@@ -87,8 +87,8 @@ export default function Home() {
             <Image
               src="/logo.png"
               alt="VedicFlo Logo"
-              width={120}
-              height={120}
+              width={180}
+              height={180}
               className="drop-shadow-2xl"
             />
           </motion.div>

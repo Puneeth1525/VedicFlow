@@ -208,8 +208,8 @@ export default function OnboardingPage() {
             <Image
               src="/logo.png"
               alt="VedicFlo Logo"
-              width={150}
-              height={150}
+              width={200}
+              height={200}
               className="drop-shadow-2xl"
             />
           </motion.div>
