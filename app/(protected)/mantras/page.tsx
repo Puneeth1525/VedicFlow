@@ -26,7 +26,7 @@ export default function MantrasPage() {
     const loadAllMantras = async () => {
       try {
         // List of mantra IDs - add new mantras here
-        const mantraIds = ['ganapati-prarthana', 'ganesha-gayatri', 'ganapathi-atharva-shirsham'];
+        const mantraIds = ['ganapati-prarthana', 'ganesha-gayatri']; // 'ganapathi-atharva-shirsham' hidden for now
 
         const loadedMantras = await Promise.all(
           mantraIds.map(async (id) => {

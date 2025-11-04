@@ -22,11 +22,11 @@ export async function GET(request: Request) {
       include: {
         mantra: true,
         recordings: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: 'asc' },
         },
       },
       orderBy: {
-        date: 'desc',
+        date: 'asc',
       },
     });
 
