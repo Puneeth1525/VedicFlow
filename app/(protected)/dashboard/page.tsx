@@ -416,14 +416,15 @@ export default function DashboardPage() {
                             key={recording.id}
                             className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/30 transition-all"
                           >
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-3">
+                              {/* Left section: Play button + Info */}
                               <div className="flex items-center gap-4 flex-1">
                                 {/* Play/Pause Button */}
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
                                   onClick={() => togglePlayer(recording.id)}
-                                  className="p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors"
+                                  className="p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex-shrink-0"
                                 >
                                   {playingRecordingId === recording.id ? (
                                     <Pause className="w-5 h-5 text-purple-400" />
@@ -431,8 +432,10 @@ export default function DashboardPage() {
                                     <Play className="w-5 h-5 text-purple-400" />
                                   )}
                                 </motion.button>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
+
+                                {/* Recording info */}
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-2 text-sm text-purple-300">
                                       <Calendar className="w-4 h-4" />
                                       {formatRelativeTime(recording.createdAt)}
@@ -445,7 +448,9 @@ export default function DashboardPage() {
                                   {getStatusBadge(recording.reviewStatus)}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+
+                              {/* Right section: Score + Action buttons */}
+                              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                                 <div className={`px-4 py-2 rounded-lg font-semibold ${getScoreColor(recording.score)}`}>
                                   {Math.round(recording.score)}%
                                 </div>
@@ -459,7 +464,7 @@ export default function DashboardPage() {
                                     className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
                                   >
                                     <MessageSquare className="w-4 h-4" />
-                                    Mentor Feedback
+                                    <span className="hidden sm:inline">Mentor Feedback</span>
                                   </motion.button>
                                 )}
 
@@ -472,7 +477,7 @@ export default function DashboardPage() {
                                     className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
                                   >
                                     <Send className="w-4 h-4" />
-                                    Submit for Review
+                                    <span className="hidden sm:inline">Submit for Review</span>
                                   </motion.button>
                                 )}
 
@@ -484,7 +489,7 @@ export default function DashboardPage() {
                                   className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                  Delete
+                                  <span className="hidden sm:inline">Delete</span>
                                 </motion.button>
                               </div>
                             </div>

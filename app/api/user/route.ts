@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -17,15 +17,24 @@ export async function GET() {
     });
 
     if (!user) {
-      // Create new user with default values
+      // Fetch user email from Clerk
+      const clerkUser = await (await clerkClient()).users.getUser(userId);
+      const emailAddress = clerkUser.emailAddresses.find(
+        email => email.id === clerkUser.primaryEmailAddressId
+      )?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress;
+
+      // Create new user with default values and email from Clerk
       user = await prisma.user.create({
         data: {
           id: userId,
+          email: emailAddress,
           role: 'STUDENT',
           approved: false,
           onboardingComplete: false,
         },
       });
+
+      console.log(`✅ User ${userId} (${emailAddress}) created via API fallback`);
     }
 
     return NextResponse.json(user);
@@ -56,15 +65,24 @@ export async function PATCH(request: Request) {
     });
 
     if (!user) {
+      // Fetch user email from Clerk
+      const clerkUser = await (await clerkClient()).users.getUser(userId);
+      const emailAddress = clerkUser.emailAddresses.find(
+        email => email.id === clerkUser.primaryEmailAddressId
+      )?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress;
+
       user = await prisma.user.create({
         data: {
           id: userId,
+          email: emailAddress,
           role: role || 'STUDENT',
           approved: false,
           onboardingComplete: onboardingComplete || false,
           baseToneHz,
         },
       });
+
+      console.log(`✅ User ${userId} (${emailAddress}) created via PATCH fallback`);
     } else {
       // Update existing user
       user = await prisma.user.update({

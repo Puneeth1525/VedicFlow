@@ -171,14 +171,16 @@ export default function OnboardingPage() {
       });
 
       if (response.ok) {
-        // Refresh the page to reload dashboard with new onboarding status
-        window.location.reload();
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
       } else {
         throw new Error('Failed to complete onboarding');
       }
     } catch (error) {
       console.error('Error completing onboarding:', error);
       alert('Failed to complete onboarding. Please try again.');
+      // Redirect to dashboard anyway in case of error
+      window.location.href = '/dashboard';
     } finally {
       setIsProcessing(false);
     }
