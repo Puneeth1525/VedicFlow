@@ -4,7 +4,7 @@ import { constructMetadata } from '@/lib/metadata';
 export const metadata: Metadata = constructMetadata({
   title: 'Dashboard - Track Your Vedic Chanting Progress | VedicFlo',
   description: 'Monitor your Vedic chanting journey with detailed practice statistics, pronunciation scores, swara accuracy, and progress across different mantras. Personalized insights powered by AI.',
-  url: 'https://vedic-flow.vercel.app/dashboard',
+  url: 'https://vedicflo.com/dashboard',
   keywords: [
     'Vedic chanting progress',
     'mantra practice tracker',

@@ -4,7 +4,7 @@ import { constructMetadata } from '@/lib/metadata';
 export const metadata: Metadata = constructMetadata({
   title: 'Welcome - Set Up Your Vedic Chanting Profile | VedicFlo',
   description: 'Complete your profile setup and calibrate your voice for personalized Vedic chanting feedback. Set your baseline tone for accurate swara analysis.',
-  url: 'https://vedic-flow.vercel.app/onboarding',
+  url: 'https://vedicflo.com/onboarding',
   noIndex: true, // Onboarding is user-specific
 });
 

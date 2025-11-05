@@ -4,7 +4,7 @@ import { constructMetadata } from '@/lib/metadata';
 export const metadata: Metadata = constructMetadata({
   title: 'Sacred Mantras Library - Learn Vedic Chanting | VedicFlo',
   description: 'Explore our comprehensive collection of sacred Vedic mantras from Rig Veda, Atharvaveda, and Upanishads. Learn Ganapati mantras, Gayatri mantras, and more with AI-powered guidance and pronunciation feedback.',
-  url: 'https://vedic-flow.vercel.app/mantras',
+  url: 'https://vedicflo.com/mantras',
   keywords: [
     'Vedic mantras library',
     'Sanskrit mantras collection',
