@@ -503,11 +503,17 @@ export default function DashboardPage() {
                                 className="mt-3 pt-3 border-t border-white/10"
                               >
                                 <audio
-                                  src={recording.audioUrl}
+                                  src={`/api/serve-audio?id=${recording.id}`}
                                   controls
                                   autoPlay
                                   className="w-full"
                                   onEnded={() => setPlayingRecordingId(null)}
+                                  onError={(e) => {
+                                    console.error('Audio playback error:', e);
+                                    console.error('Recording ID:', recording.id);
+                                    alert('Unable to play audio. The file may not be available.');
+                                  }}
+                                  onLoadStart={() => console.log('Loading audio for recording:', recording.id)}
                                   style={{
                                     height: '40px',
                                     borderRadius: '8px',
@@ -605,7 +611,7 @@ export default function DashboardPage() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => window.open(showRemarksModal.audioUrl, '_blank')}
+                    onClick={() => window.open(`/api/serve-audio?id=${showRemarksModal.id}`, '_blank')}
                     className="flex-1 px-6 py-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     <Play className="w-4 h-4" />
