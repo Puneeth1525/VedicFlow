@@ -1,10 +1,11 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, UserCheck, Mail, Calendar, Check, X, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, UserCheck, Mail, Calendar, Check, X, Loader2, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatRelativeTime } from '@/lib/format';
 
 interface PendingUser {
   id: string;
@@ -13,11 +14,26 @@ interface PendingUser {
   onboardingComplete: boolean;
 }
 
+interface AllUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  approved: boolean;
+  onboardingComplete: boolean;
+  createdAt: string;
+  userStats: {
+    lastPracticed: string | null;
+    totalPractices: number;
+  } | null;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [approvingUserId, setApprovingUserId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -46,6 +62,13 @@ export default function AdminPage() {
         const users = await response.json();
         setPendingUsers(users);
         setIsAuthorized(true);
+
+        // Fetch all users
+        const allUsersResponse = await fetch('/api/admin/all-users');
+        if (allUsersResponse.ok) {
+          const allUsersData = await allUsersResponse.json();
+          setAllUsers(allUsersData);
+        }
       } else {
         throw new Error('Failed to fetch users');
       }
@@ -71,8 +94,15 @@ export default function AdminPage() {
         throw new Error('Failed to approve user');
       }
 
-      // Remove approved user from list
+      // Remove approved user from pending list
       setPendingUsers(pendingUsers.filter(user => user.id !== userId));
+
+      // Refresh all users list
+      const allUsersResponse = await fetch('/api/admin/all-users');
+      if (allUsersResponse.ok) {
+        const allUsersData = await allUsersResponse.json();
+        setAllUsers(allUsersData);
+      }
     } catch (err) {
       setError('Error approving user: ' + (err as Error).message);
     } finally {
@@ -271,6 +301,114 @@ export default function AdminPage() {
             ))
           )}
         </div>
+
+        {/* All Users Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-12 space-y-6"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-purple-300">All Users</h2>
+            <div className="px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-500/50 text-purple-300 text-sm flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              {allUsers.length} Total Users
+            </div>
+          </div>
+
+          {allUsers.length === 0 ? (
+            <div className="p-12 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10 text-center">
+              <Users className="w-16 h-16 text-purple-400/50 mx-auto mb-4" />
+              <p className="text-xl text-purple-300">No users found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Email</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Name</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Role</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Approved</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Onboarded</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Practices</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Last Activity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allUsers.map((user, index) => (
+                    <motion.tr
+                      key={user.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                          <span className="text-white text-sm">{user.email || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-purple-200 text-sm">{user.name || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                          user.role === 'TEACHER'
+                            ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300'
+                            : user.role === 'MENTOR'
+                            ? 'bg-blue-500/20 border border-blue-500/50 text-blue-300'
+                            : 'bg-slate-500/20 border border-slate-500/50 text-slate-300'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {user.approved ? (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs bg-green-500/20 border border-green-500/50 text-green-300">
+                            ✓ Yes
+                          </span>
+                        ) : (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs bg-red-500/20 border border-red-500/50 text-red-300">
+                            ✗ No
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {user.onboardingComplete ? (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs bg-green-500/20 border border-green-500/50 text-green-300">
+                            ✓ Yes
+                          </span>
+                        ) : (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs bg-yellow-500/20 border border-yellow-500/50 text-yellow-300">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-purple-200 text-sm font-semibold">
+                          {user.userStats?.totalPractices || 0}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                          <span className="text-purple-200 text-sm">
+                            {user.userStats?.lastPracticed
+                              ? formatRelativeTime(user.userStats.lastPracticed)
+                              : 'Never'}
+                          </span>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.div>
 
         {/* Instructions */}
         <motion.div
