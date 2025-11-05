@@ -19,7 +19,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    // Fetch all users with their stats
+    // Fetch all users
     const allUsers = await prisma.user.findMany({
       orderBy: {
         createdAt: 'desc',
@@ -31,16 +31,30 @@ export async function GET() {
         approved: true,
         onboardingComplete: true,
         createdAt: true,
-        userStats: {
-          select: {
-            lastPracticed: true,
-            totalPractices: true,
-          },
-        },
       },
     });
 
-    return NextResponse.json(allUsers);
+    // Fetch all user stats separately
+    const allUserStats = await prisma.userStats.findMany({
+      select: {
+        userId: true,
+        lastPracticed: true,
+        totalPractices: true,
+      },
+    });
+
+    // Create a map of userId to stats
+    const statsMap = new Map(
+      allUserStats.map(stat => [stat.userId, stat])
+    );
+
+    // Combine users with their stats
+    const usersWithStats = allUsers.map(user => ({
+      ...user,
+      userStats: statsMap.get(user.id) || null,
+    }));
+
+    return NextResponse.json(usersWithStats);
   } catch (error) {
     console.error('Error fetching all users:', error);
     return NextResponse.json(
