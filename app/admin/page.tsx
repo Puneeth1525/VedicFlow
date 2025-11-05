@@ -17,7 +17,6 @@ interface PendingUser {
 interface AllUser {
   id: string;
   email: string;
-  name: string | null;
   role: string;
   approved: boolean;
   onboardingComplete: boolean;
@@ -64,10 +63,16 @@ export default function AdminPage() {
         setIsAuthorized(true);
 
         // Fetch all users
+        console.log('Fetching all users...');
         const allUsersResponse = await fetch('/api/admin/all-users');
+        console.log('All users response status:', allUsersResponse.status);
         if (allUsersResponse.ok) {
           const allUsersData = await allUsersResponse.json();
+          console.log('All users data:', allUsersData);
           setAllUsers(allUsersData);
+        } else {
+          const errorText = await allUsersResponse.text();
+          console.error('Failed to fetch all users:', errorText);
         }
       } else {
         throw new Error('Failed to fetch users');
@@ -328,12 +333,12 @@ export default function AdminPage() {
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Email</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Name</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Role</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Approved</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Onboarded</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-purple-300">Practices</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Last Activity</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-purple-300">Registered</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -350,9 +355,6 @@ export default function AdminPage() {
                           <Mail className="w-4 h-4 text-cyan-400 flex-shrink-0" />
                           <span className="text-white text-sm">{user.email || 'N/A'}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-purple-200 text-sm">{user.name || '-'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
@@ -402,40 +404,17 @@ export default function AdminPage() {
                           </span>
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className="text-purple-200 text-sm">
+                          {formatRelativeTime(user.createdAt)}
+                        </span>
+                      </td>
                     </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </motion.div>
-
-        {/* Instructions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-8 p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10"
-        >
-          <h3 className="text-lg font-semibold mb-3 text-purple-300">Admin Instructions</h3>
-          <ul className="space-y-2 text-purple-200 text-sm">
-            <li className="flex gap-3">
-              <span className="text-cyan-400 font-bold">•</span>
-              <span>Review newly registered users and their email addresses</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="text-cyan-400 font-bold">•</span>
-              <span>Click &quot;Approve User&quot; to grant access to the application</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="text-cyan-400 font-bold">•</span>
-              <span>Approved users will be able to access all features immediately</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="text-cyan-400 font-bold">•</span>
-              <span>Users with pending onboarding have not completed the setup process yet</span>
-            </li>
-          </ul>
         </motion.div>
       </div>
     </div>
