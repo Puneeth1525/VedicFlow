@@ -15,31 +15,31 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pointer-events-none">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pointer-events-none">
       <div className="max-w-md mx-auto pointer-events-auto">
         {/* Glassmorphic Navigation Bar */}
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-          className="relative rounded-[28px] overflow-hidden"
+          className="relative rounded-[24px] overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px 0 rgba(139, 92, 246, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 6px 24px 0 rgba(139, 92, 246, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
           }}
         >
           {/* Inner glow effect */}
           <div
-            className="absolute inset-0 rounded-[28px]"
+            className="absolute inset-0 rounded-[24px]"
             style={{
-              background: 'radial-gradient(circle at 50% 0%, rgba(167, 139, 250, 0.15) 0%, transparent 70%)',
+              background: 'radial-gradient(circle at 50% 0%, rgba(167, 139, 250, 0.12) 0%, transparent 70%)',
             }}
           />
 
           {/* Navigation Items */}
-          <div className="relative flex items-center justify-around px-6 py-4">
+          <div className="relative flex items-center justify-around px-4 py-2.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
               const Icon = item.icon;
@@ -49,16 +49,16 @@ export default function BottomNav() {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="relative flex flex-col items-center gap-1.5 py-2"
+                    className="relative flex items-center justify-center py-2"
                   >
                     {/* Active State Background Glow */}
                     {isActive && (
                       <motion.div
                         layoutId="activeTab"
-                        className="absolute inset-0 rounded-2xl"
+                        className="absolute inset-0 rounded-xl"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%)',
-                          filter: 'blur(8px)',
+                          background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
+                          filter: 'blur(6px)',
                         }}
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                       />
@@ -71,10 +71,10 @@ export default function BottomNav() {
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute inset-0 rounded-2xl -m-3"
+                          className="absolute inset-0 rounded-xl -m-2"
                           style={{
                             background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-                            boxShadow: '0 4px 20px rgba(236, 72, 153, 0.5), 0 0 40px rgba(139, 92, 246, 0.3)',
+                            boxShadow: '0 3px 16px rgba(236, 72, 153, 0.4), 0 0 30px rgba(139, 92, 246, 0.25)',
                           }}
                         />
                       )}
@@ -82,14 +82,14 @@ export default function BottomNav() {
                       {/* Icon */}
                       <motion.div
                         className="relative"
-                        animate={isActive ? { y: [0, -2, 0] } : {}}
+                        animate={isActive ? { y: [0, -1, 0] } : {}}
                         transition={{ duration: 0.3 }}
                       >
                         <Icon
                           className={`relative z-10 transition-all duration-300 ${
                             isActive
-                              ? 'w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(236,72,153,0.8)]'
-                              : 'w-6 h-6 text-slate-300/60'
+                              ? 'w-6 h-6 text-white drop-shadow-[0_0_6px_rgba(236,72,153,0.7)]'
+                              : 'w-5 h-5 text-slate-300/60'
                           }`}
                           strokeWidth={isActive ? 2.5 : 2}
                         />
@@ -97,13 +97,13 @@ export default function BottomNav() {
                         {/* Icon Inner Glow for Active State */}
                         {isActive && (
                           <motion.div
-                            className="absolute inset-0 rounded-full blur-md"
+                            className="absolute inset-0 rounded-full blur-sm"
                             style={{
-                              background: 'radial-gradient(circle, rgba(236, 72, 153, 0.6) 0%, transparent 70%)',
+                              background: 'radial-gradient(circle, rgba(236, 72, 153, 0.5) 0%, transparent 70%)',
                             }}
                             animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.5, 0.8, 0.5],
+                              scale: [1, 1.15, 1],
+                              opacity: [0.4, 0.7, 0.4],
                             }}
                             transition={{
                               duration: 2,
@@ -115,32 +115,12 @@ export default function BottomNav() {
                       </motion.div>
                     </div>
 
-                    {/* Label */}
-                    <motion.span
-                      className={`relative z-10 text-xs font-medium transition-all duration-300 ${
-                        isActive
-                          ? 'text-white font-semibold'
-                          : 'text-slate-300/50'
-                      }`}
-                      style={{
-                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                        letterSpacing: '0.01em',
-                      }}
-                      animate={isActive ? {
-                        textShadow: '0 0 8px rgba(236, 72, 153, 0.6)'
-                      } : {
-                        textShadow: '0 0 0px rgba(0, 0, 0, 0)'
-                      }}
-                    >
-                      {item.label}
-                    </motion.span>
-
                     {/* Hover Glow Effect for Inactive */}
                     {!isActive && (
                       <motion.div
-                        className="absolute inset-0 rounded-2xl opacity-0"
+                        className="absolute inset-0 rounded-xl opacity-0"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
+                          background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%)',
                         }}
                         whileHover={{ opacity: 1 }}
                         transition={{ duration: 0.2 }}
