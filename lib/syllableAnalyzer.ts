@@ -25,6 +25,19 @@ export interface SyllableAnalysisResult {
   overallScore: number;
   accuracy: 'perfect' | 'good' | 'fair' | 'poor';
   swaraAccuracy: 'perfect' | 'good' | 'fair' | 'poor'; // Swara-only accuracy for arrow colors
+
+  // Pitch data from V2 analyzer (optional, only when available)
+  pitchData?: {
+    startPitch: number;      // Hz
+    endPitch: number;        // Hz
+    deltaStart: number;      // semitones relative to baseline
+    deltaEnd: number;        // semitones relative to baseline
+    slope: number;           // st/s
+    duration: number;        // seconds
+    voicedRatio: number;     // 0-1
+  };
+
+  feedback?: string;  // Optional individual syllable feedback
 }
 
 export interface DetailedFeedback {
@@ -380,7 +393,16 @@ async function analyzeSwaras(
         swaraMatch,  // Only based on swara correctness, not gradability
         overallScore: score,
         accuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor',
-        swaraAccuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor'
+        swaraAccuracy: accuracy as 'perfect' | 'good' | 'fair' | 'poor',
+        pitchData: {
+          startPitch: v2Syl.f0_start_hz,
+          endPitch: v2Syl.f0_end_hz,
+          deltaStart: v2Syl.delta_start,
+          deltaEnd: v2Syl.delta_end,
+          slope: v2Syl.slope_st_per_sec,
+          duration: v2Syl.duration_ms / 1000,  // Convert ms to seconds
+          voicedRatio: v2Syl.voicedRatio
+        }
       };
     });
 

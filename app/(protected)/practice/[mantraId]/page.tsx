@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Pause, Mic, Square, Volume2, Info, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Mic, Square, Volume2, Info, Loader2, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -64,6 +64,7 @@ export default function PracticePage() {
   const [advancedMode, setAdvancedMode] = useState(false); // Toggle for word-by-word display
   const [audioProgress, setAudioProgress] = useState(0); // Current audio time in seconds
   const [showWordByWord, setShowWordByWord] = useState(false);
+  const [showAdvancedReview, setShowAdvancedReview] = useState(false); // Toggle for detailed syllable analysis
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1342,6 +1343,173 @@ export default function PracticePage() {
                   </motion.div>
                 )}
               </div>
+
+              {/* Advanced Review Toggle - Show when detailed feedback is available */}
+              {lastDetailedFeedback && analysisMode === 'phonetic' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 pt-4 border-t border-white/10"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowAdvancedReview(!showAdvancedReview)}
+                    className="w-full flex items-center justify-between px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600/20 to-purple-600/20 border border-cyan-400/30 hover:border-cyan-400/50 transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🔍</span>
+                      <div className="text-left">
+                        <p className="font-semibold text-white">Advanced Review</p>
+                        <p className="text-xs text-purple-300">Detailed syllable-by-syllable analysis</p>
+                      </div>
+                    </div>
+                    {showAdvancedReview ? (
+                      <ChevronUp className="w-5 h-5 text-cyan-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-cyan-400" />
+                    )}
+                  </motion.button>
+
+                  {/* Advanced Syllable Analysis Accordion */}
+                  <AnimatePresence>
+                    {showAdvancedReview && comprehensiveResults.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-4 p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 backdrop-blur-lg border border-purple-400/30">
+                          <h3 className="text-lg font-semibold mb-4 text-purple-300 flex items-center gap-2">
+                            <span className="text-2xl">🔬</span>
+                            Advanced Syllable Analysis
+                          </h3>
+
+                          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                            {comprehensiveResults.map((syllable, index) => {
+                              const currentSyllables = getCurrentSyllables();
+                              const expectedSyllable = currentSyllables[syllable.syllableIndex];
+                              const isMatch = syllable.accuracy === 'perfect' || syllable.accuracy === 'good';
+
+                              return (
+                                <motion.div
+                                  key={index}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.03 }}
+                                  className={`p-4 rounded-xl border ${
+                                    isMatch
+                                      ? 'border-green-500/30 bg-green-500/10'
+                                      : 'border-red-500/30 bg-red-500/10'
+                                  }`}
+                                >
+                                  {/* Header */}
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3 mb-1">
+                                        <div className="text-xl font-bold">
+                                          {expectedSyllable?.text || '?'}
+                                        </div>
+                                        {expectedSyllable?.romanization && (
+                                          <div className="text-xs text-purple-300">
+                                            ({expectedSyllable.romanization})
+                                          </div>
+                                        )}
+                                        {isMatch ? (
+                                          <CheckCircle2 className="w-4 h-4 text-green-400" />
+                                        ) : (
+                                          <span className="text-red-400 text-xs">✗</span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-purple-300">
+                                        Position #{syllable.syllableIndex + 1}
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <div className="text-xs font-semibold mb-1 text-cyan-300">
+                                        Pronunciation: {syllable.pronunciationScore}%
+                                      </div>
+                                      <div className="text-xs text-purple-300">
+                                        Accuracy: {syllable.accuracy}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Swara Comparison */}
+                                  {syllable.swaraScore !== undefined && (
+                                    <div className="mb-3 pb-3 border-b border-white/10">
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                          <span className="text-purple-300">Expected:</span>
+                                          <span className={`ml-2 font-semibold ${getSwaraColor(syllable.expectedSwara).split(' ')[0]}`}>
+                                            {syllable.expectedSwara}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-purple-300">Detected:</span>
+                                          <span className={`ml-2 font-semibold ${getSwaraColor(syllable.detectedSwara).split(' ')[0]}`}>
+                                            {syllable.detectedSwara}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="mt-1 text-xs text-cyan-300">
+                                        Swara Score: {syllable.swaraScore}%
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Pitch & Timing Details */}
+                                  {syllable.pitchData && (
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div className="p-2 rounded bg-black/20">
+                                        <div className="opacity-70 mb-1">Start Pitch</div>
+                                        <div className="font-semibold text-blue-300">
+                                          {Math.round(syllable.pitchData.startPitch)} Hz
+                                        </div>
+                                      </div>
+
+                                      <div className="p-2 rounded bg-black/20">
+                                        <div className="opacity-70 mb-1">End Pitch</div>
+                                        <div className="font-semibold text-blue-300">
+                                          {Math.round(syllable.pitchData.endPitch)} Hz
+                                        </div>
+                                      </div>
+
+                                      <div className="p-2 rounded bg-black/20">
+                                        <div className="opacity-70 mb-1">Slope</div>
+                                        <div className="font-semibold text-purple-300">
+                                          {syllable.pitchData.slope > 0 ? '↗' : syllable.pitchData.slope < 0 ? '↘' : '→'}
+                                          {' '}{Math.abs(syllable.pitchData.slope).toFixed(1)}
+                                        </div>
+                                      </div>
+
+                                      <div className="p-2 rounded bg-black/20">
+                                        <div className="opacity-70 mb-1">Duration</div>
+                                        <div className="font-semibold text-cyan-300">
+                                          {Math.round(syllable.pitchData.duration * 1000)} ms
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Feedback Message */}
+                                  {syllable.feedback && (
+                                    <div className="mt-3 pt-3 border-t border-white/10 text-xs text-purple-200">
+                                      💬 {syllable.feedback}
+                                    </div>
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )}
             </div>
           </div>
 
