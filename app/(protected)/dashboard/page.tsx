@@ -117,24 +117,25 @@ export default function DashboardPage() {
 
   const handleSubmitForReview = async (recordingId: string) => {
     try {
-      const res = await fetch('/api/recordings', {
-        method: 'PATCH',
+      const res = await fetch('/api/submissions', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recordingId,
-          submittedForReview: true,
-          reviewStatus: 'under-review',
         }),
       });
 
       if (res.ok) {
-        // Refresh practices
+        // Refresh practices to show updated status
         const practicesRes = await fetch('/api/practices');
         if (practicesRes.ok) {
           const allPractices = await practicesRes.json();
           setPractices(allPractices);
         }
         alert('Recording submitted for mentor review!');
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to submit recording');
       }
     } catch (error) {
       console.error('Error submitting recording:', error);
