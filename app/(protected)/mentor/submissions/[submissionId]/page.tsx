@@ -55,6 +55,7 @@ export default function SubmissionDetailPage({
 
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
+  const [alignmentReady, setAlignmentReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -66,9 +67,20 @@ export default function SubmissionDetailPage({
     fetchSubmission();
   }, [resolvedParams.submissionId]);
 
-  // Set up audio event listeners when submission loads
+  // Poll for alignment completion
   useEffect(() => {
-    if (!submission || !audioRef.current) return;
+    if (loading || alignmentReady || !submission) return;
+
+    const pollInterval = setInterval(() => {
+      fetchSubmission();
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [loading, alignmentReady, submission]);
+
+  // Set up audio event listeners when submission loads and alignment is ready
+  useEffect(() => {
+    if (!submission || !audioRef.current || !alignmentReady) return;
 
     const audio = audioRef.current;
 
@@ -110,7 +122,7 @@ export default function SubmissionDetailPage({
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
     };
-  }, [submission, isPlaying]);
+  }, [submission, isPlaying, alignmentReady]);
 
   const fetchSubmission = async () => {
     try {
@@ -121,6 +133,13 @@ export default function SubmissionDetailPage({
 
       if (response.ok) {
         setSubmission(data.submission);
+
+        // Check if alignment words are ready
+        const hasAlignment =
+          data.submission.recording?.alignmentWords &&
+          data.submission.recording.alignmentWords.length > 0;
+        setAlignmentReady(hasAlignment);
+
         // Pre-populate if already reviewed
         if (data.submission.feedbacks && data.submission.feedbacks.length > 0) {
           const latestFeedback = data.submission.feedbacks[0];
@@ -290,22 +309,42 @@ export default function SubmissionDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Audio Player Section */}
           <div className="space-y-6">
-            {/* Audio Player */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
-            >
-              <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
+            {!alignmentReady ? (
+              /* Loading State */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
+              >
+                <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500"></div>
+                  <p className="text-purple-300 text-lg font-semibold">
+                    Processing audio transcription...
+                  </p>
+                  <p className="text-purple-400 text-sm text-center max-w-md">
+                    This usually takes 5-10 seconds. We're analyzing the recording to enable
+                    word-level feedback.
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              /* Audio Player */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
+              >
+                <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
 
-              <audio
-                ref={audioRef}
-                src={submission.recording.audioUrl}
-                preload="metadata"
-              />
+                <audio
+                  ref={audioRef}
+                  src={submission.recording.audioUrl}
+                  preload="metadata"
+                />
 
-              {/* Progress Bar */}
-              <div className="mb-6">
+                {/* Progress Bar */}
+                <div className="mb-6">
                 <div
                   className="h-2 bg-white/10 rounded-full cursor-pointer"
                   onClick={(e) => {
@@ -324,43 +363,44 @@ export default function SubmissionDetailPage({
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
-              </div>
+                </div>
 
-              {/* Controls */}
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={skipBackward}
-                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-                >
-                  <SkipBack className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={togglePlayPause}
-                  className="p-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg text-white transition-all"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-8 h-8" />
-                  ) : (
-                    <Play className="w-8 h-8 ml-1" />
-                  )}
-                </button>
-                <button
-                  onClick={skipForward}
-                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-                >
-                  <SkipForward className="w-6 h-6" />
-                </button>
-              </div>
+                {/* Controls */}
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={skipBackward}
+                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                  >
+                    <SkipBack className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={togglePlayPause}
+                    className="p-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg text-white transition-all"
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-8 h-8" />
+                    ) : (
+                      <Play className="w-8 h-8 ml-1" />
+                    )}
+                  </button>
+                  <button
+                    onClick={skipForward}
+                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                  >
+                    <SkipForward className="w-6 h-6" />
+                  </button>
+                </div>
 
-              {/* Manual Timestamp Button */}
-              <button
-                onClick={insertTimestamp}
-                className="w-full mt-6 py-3 bg-white/10 hover:bg-white/20 text-purple-300 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-              >
-                <Clock className="w-5 h-5" />
-                Insert Timestamp at {formatTime(currentTime)}
-              </button>
-            </motion.div>
+                {/* Manual Timestamp Button */}
+                <button
+                  onClick={insertTimestamp}
+                  className="w-full mt-6 py-3 bg-white/10 hover:bg-white/20 text-purple-300 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                >
+                  <Clock className="w-5 h-5" />
+                  Insert Timestamp at {formatTime(currentTime)}
+                </button>
+              </motion.div>
+            )}
 
             {/* Previous Feedback (if any) */}
             {submission.feedbacks && submission.feedbacks.length > 0 && (
