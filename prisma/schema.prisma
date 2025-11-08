@@ -18,6 +18,13 @@ enum UserRole {
   TEACHER
 }
 
+// Submission status enum
+enum SubmissionStatus {
+  PENDING
+  IN_REVIEW
+  COMPLETED
+}
+
 // User table for storing role and other user-specific data
 model User {
   id                 String   @id // Clerk user ID
@@ -115,7 +122,9 @@ model Recording {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  practice            Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practice            Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  submission          Submission?
+  alignmentWords      AlignmentWord[]
 
   @@index([practiceId])
 }
@@ -136,4 +145,71 @@ model MantraProgress {
   @@unique([userId, mantraId])
   @@index([userId])
   @@index([mantraId])
+}
+
+// Submission for mentor review
+model Submission {
+  id             String           @id @default(uuid())
+  recordingId    String           @unique
+  studentId      String           // Clerk user ID of student
+  mentorId       String?          // Clerk user ID of assigned mentor (null = unassigned)
+  status         SubmissionStatus @default(PENDING)
+  submittedAt    DateTime         @default(now())
+  reviewedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  recording      Recording        @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  feedbacks      Feedback[]
+
+  @@index([studentId])
+  @@index([mentorId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+// Feedback given by mentor on a submission
+model Feedback {
+  id              String   @id @default(uuid())
+  submissionId    String
+  mentorId        String   // Clerk user ID of mentor
+  overallRemarks  String   // Markdown text with overall feedback
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  submission      Submission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  markers         FeedbackMarker[]
+
+  @@index([submissionId])
+  @@index([mentorId])
+}
+
+// Timestamp-based feedback markers
+model FeedbackMarker {
+  id         String   @id @default(uuid())
+  feedbackId String
+  timestamp  Float    // Time in seconds in the audio
+  comment    String   // Feedback comment at this timestamp
+  createdAt  DateTime @default(now())
+
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@index([feedbackId])
+  @@index([timestamp])
+}
+
+// Word-level alignment data from Whisper
+model AlignmentWord {
+  id         String   @id @default(uuid())
+  recordingId String
+  word       String   // The recognized word
+  startTime  Float    // Start time in seconds
+  endTime    Float    // End time in seconds
+  confidence Float    // Confidence score from Whisper
+  createdAt  DateTime @default(now())
+
+  recording  Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@index([recordingId])
+  @@index([startTime])
 }
