@@ -23,6 +23,8 @@ export interface MantraData {
   id: string;
   title: string;
   category: string;
+  difficulty?: string;
+  about?: string;
   audioUrl: string;
   // Flexible structure: can have chapters OR paragraphs, never both
   chapters?: Chapter[]; // For complex mantras like Vishnu Sahasranamam
