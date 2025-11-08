@@ -53,18 +53,35 @@ model UserStats {
 
 // Mantra definition
 model Mantra {
-  id          String            @id @default(uuid())
-  title       String
-  category    String
-  difficulty  String
-  verses      Int
-  duration    String
-  audioUrl    String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id                 String            @id @default(uuid())
+  title              String
+  category           String
+  difficulty         String
+  verses             Int
+  duration           String
+  audioUrl           String?
+  practitionersCount Int               @default(0) // Number of people currently practicing
+  likesCount         Int               @default(0) // Total number of likes
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
-  practices   Practice[]
-  mantraProgress MantraProgress[]
+  practices          Practice[]
+  mantraProgress     MantraProgress[]
+  likes              MantraLike[]
+}
+
+// Track which users liked which mantras
+model MantraLike {
+  id        String   @id @default(uuid())
+  userId    String   // Clerk user ID
+  mantraId  String
+  createdAt DateTime @default(now())
+
+  mantra    Mantra   @relation(fields: [mantraId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mantraId])
+  @@index([userId])
+  @@index([mantraId])
 }
 
 // Practice session
