@@ -66,44 +66,51 @@ export default function SubmissionDetailPage({
     fetchSubmission();
   }, [resolvedParams.submissionId]);
 
+  // Set up audio event listeners when submission loads
   useEffect(() => {
-    if (audioRef.current) {
-      const audio = audioRef.current;
+    if (!submission || !audioRef.current) return;
 
-      const handleTimeUpdate = () => {
-        setCurrentTime(audio.currentTime);
-      };
+    const audio = audioRef.current;
 
-      const handleDurationChange = () => {
-        setDuration(audio.duration);
-      };
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
 
-      const handleEnded = () => {
-        setIsPlaying(false);
-      };
+    const handleDurationChange = () => {
+      setDuration(audio.duration);
+    };
 
-      // Auto-insert timestamp when paused
-      const handlePause = () => {
-        setIsPlaying(false);
-        // Only insert if audio was playing and we're not at the beginning
-        if (audio.currentTime > 0 && !audio.ended) {
-          insertTimestamp();
-        }
-      };
+    const handleEnded = () => {
+      setIsPlaying(false);
+    };
 
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('durationchange', handleDurationChange);
-      audio.addEventListener('ended', handleEnded);
-      audio.addEventListener('pause', handlePause);
+    const handlePlay = () => {
+      setIsPlaying(true);
+    };
 
-      return () => {
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('durationchange', handleDurationChange);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('pause', handlePause);
-      };
-    }
-  }, []);
+    // Auto-insert timestamp when paused
+    const handlePause = async () => {
+      setIsPlaying(false);
+      // Only insert if audio was playing and we're not at the beginning
+      if (audio.currentTime > 0.5 && !audio.ended && isPlaying) {
+        await insertTimestampWithWord(audio.currentTime);
+      }
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('durationchange', handleDurationChange);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('durationchange', handleDurationChange);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+    };
+  }, [submission, isPlaying]);
 
   const fetchSubmission = async () => {
     try {
@@ -166,11 +173,30 @@ export default function SubmissionDetailPage({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const insertTimestamp = () => {
+  const findWordAtTimestamp = (timestamp: number) => {
+    if (!submission?.recording?.alignmentWords || submission.recording.alignmentWords.length === 0) {
+      return null;
+    }
+
+    // Find the word being spoken at this timestamp
+    const word = submission.recording.alignmentWords.find(
+      (w: any) => timestamp >= w.startTime && timestamp <= w.endTime
+    );
+
+    return word;
+  };
+
+  const insertTimestampWithWord = async (timestamp: number) => {
     if (!textareaRef.current) return;
 
-    const timestamp = audioRef.current?.currentTime || 0;
-    const timestampText = `\n\n**[${formatTime(timestamp)}]**\n`;
+    const word = findWordAtTimestamp(timestamp);
+    let timestampText = `\n\n**[${formatTime(timestamp)}]**`;
+
+    if (word) {
+      timestampText += ` _"${word.word}"_`;
+    }
+
+    timestampText += '\n';
 
     const textarea = textareaRef.current;
     const cursorPosition = textarea.selectionStart;
@@ -185,6 +211,11 @@ export default function SubmissionDetailPage({
         cursorPosition + timestampText.length;
       textarea.focus();
     }, 0);
+  };
+
+  const insertTimestamp = () => {
+    if (!audioRef.current) return;
+    insertTimestampWithWord(audioRef.current.currentTime);
   };
 
   const handleSubmitFeedback = async () => {
