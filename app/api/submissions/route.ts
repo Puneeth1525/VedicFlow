@@ -82,6 +82,18 @@ export async function POST(request: Request) {
       },
     });
 
+    // Trigger alignment processing asynchronously (don't wait for it)
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/process-alignment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ recordingId }),
+    }).catch((error) => {
+      console.error('Error triggering alignment processing:', error);
+      // Don't fail the submission if alignment processing fails
+    });
+
     return NextResponse.json({
       success: true,
       submission,

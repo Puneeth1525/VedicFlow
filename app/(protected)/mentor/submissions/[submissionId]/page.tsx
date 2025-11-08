@@ -175,6 +175,7 @@ export default function SubmissionDetailPage({
 
   const findWordAtTimestamp = (timestamp: number) => {
     if (!submission?.recording?.alignmentWords || submission.recording.alignmentWords.length === 0) {
+      console.warn('No alignment words available');
       return null;
     }
 
@@ -190,13 +191,7 @@ export default function SubmissionDetailPage({
     if (!textareaRef.current) return;
 
     const word = findWordAtTimestamp(timestamp);
-    let timestampText = `\n\n**[${formatTime(timestamp)}]**`;
-
-    if (word) {
-      timestampText += ` _"${word.word}"_`;
-    }
-
-    timestampText += '\n';
+    const timestampText = `\n\n**[${formatTime(timestamp)}]** _"${word?.word || 'processing...'}"_\n`;
 
     const textarea = textareaRef.current;
     const cursorPosition = textarea.selectionStart;
