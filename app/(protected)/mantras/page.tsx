@@ -23,6 +23,13 @@ interface MantraCardData {
   isLiked?: boolean;
 }
 
+interface MantraStats {
+  mantraId: string;
+  practitionersCount: number;
+  likesCount: number;
+  isLiked: boolean;
+}
+
 export default function MantrasPage() {
   const router = useRouter();
   const [mantras, setMantras] = useState<MantraCardData[]>([]);
@@ -86,7 +93,7 @@ export default function MantrasPage() {
 
             // Merge stats with mantra data
             const mantrasWithStats = validMantras.map(mantra => {
-              const stats = statsData.stats?.find((s: any) => s.mantraId === mantra.id);
+              const stats = statsData.stats?.find((s: MantraStats) => s.mantraId === mantra.id);
               return {
                 ...mantra,
                 practitionersCount: stats?.practitionersCount || 0,
