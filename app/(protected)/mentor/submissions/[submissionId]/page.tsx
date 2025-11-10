@@ -62,13 +62,16 @@ export default function SubmissionDetailPage({
 
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
-  const [alignmentReady, setAlignmentReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [overallRemarks, setOverallRemarks] = useState('');
   const [markers, setMarkers] = useState<FeedbackMarker[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Check if alignment words are available
+  const alignmentReady = submission?.recording?.alignmentWords &&
+    submission.recording.alignmentWords.length > 0;
 
   const fetchSubmission = useCallback(async () => {
     try {
@@ -79,12 +82,6 @@ export default function SubmissionDetailPage({
 
       if (response.ok) {
         setSubmission(data.submission);
-
-        // Check if alignment words are ready
-        const hasAlignment =
-          data.submission.recording?.alignmentWords &&
-          data.submission.recording.alignmentWords.length > 0;
-        setAlignmentReady(hasAlignment);
 
         // Pre-populate if already reviewed
         if (data.submission.feedbacks && data.submission.feedbacks.length > 0) {
@@ -131,7 +128,9 @@ export default function SubmissionDetailPage({
     if (!textareaRef.current) return;
 
     const word = findWordAtTimestamp(timestamp);
-    const timestampText = `\n\n**[${formatTime(timestamp)}]** _"${word?.word || 'processing...'}"_\n`;
+    const timestampText = alignmentReady && word
+      ? `\n\n**[${formatTime(timestamp)}]** _"${word.word}"_\n`
+      : `\n\n**[${formatTime(timestamp)}]**\n`;
 
     const textarea = textareaRef.current;
     const cursorPosition = textarea.selectionStart;
@@ -148,9 +147,9 @@ export default function SubmissionDetailPage({
     }, 0);
   }, [findWordAtTimestamp, overallRemarks]);
 
-  // Set up audio event listeners when submission loads and alignment is ready
+  // Set up basic audio event listeners when submission loads
   useEffect(() => {
-    if (!submission || !audioRef.current || !alignmentReady) return;
+    if (!submission || !audioRef.current) return;
 
     const audio = audioRef.current;
 
@@ -170,13 +169,8 @@ export default function SubmissionDetailPage({
       setIsPlaying(true);
     };
 
-    // Auto-insert timestamp when paused
-    const handlePause = async () => {
+    const handlePause = () => {
       setIsPlaying(false);
-      // Only insert if audio was playing and we're not at the beginning
-      if (audio.currentTime > 0.5 && !audio.ended && isPlaying) {
-        await insertTimestampWithWord(audio.currentTime);
-      }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -192,7 +186,27 @@ export default function SubmissionDetailPage({
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
     };
-  }, [submission, isPlaying, alignmentReady, insertTimestampWithWord]);
+  }, [submission]);
+
+  // Auto-insert timestamp when paused (only when alignment is ready)
+  useEffect(() => {
+    if (!alignmentReady || !audioRef.current) return;
+
+    const audio = audioRef.current;
+
+    const handlePause = async () => {
+      // Only insert if audio was playing and we're not at the beginning
+      if (audio.currentTime > 0.5 && !audio.ended && isPlaying) {
+        await insertTimestampWithWord(audio.currentTime);
+      }
+    };
+
+    audio.addEventListener('pause', handlePause);
+
+    return () => {
+      audio.removeEventListener('pause', handlePause);
+    };
+  }, [alignmentReady, isPlaying, insertTimestampWithWord]);
 
   const togglePlayPause = () => {
     if (!audioRef.current) return;
@@ -311,16 +325,16 @@ export default function SubmissionDetailPage({
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
             >
-                <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
 
-                <audio
-                  ref={audioRef}
-                  src={submission.recording.audioUrl}
-                  preload="metadata"
-                />
+              <audio
+                ref={audioRef}
+                src={submission.recording.audioUrl}
+                preload="metadata"
+              />
 
-                {/* Progress Bar */}
-                <div className="mb-6">
+              {/* Progress Bar */}
+              <div className="mb-6">
                 <div
                   className="h-2 bg-white/10 rounded-full cursor-pointer"
                   onClick={(e) => {
@@ -339,42 +353,42 @@ export default function SubmissionDetailPage({
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
-                </div>
+              </div>
 
-                {/* Controls */}
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={skipBackward}
-                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-                  >
-                    <SkipBack className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={togglePlayPause}
-                    className="p-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg text-white transition-all"
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-8 h-8" />
-                    ) : (
-                      <Play className="w-8 h-8 ml-1" />
-                    )}
-                  </button>
-                  <button
-                    onClick={skipForward}
-                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-                  >
-                    <SkipForward className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* Manual Timestamp Button */}
+              {/* Controls */}
+              <div className="flex items-center justify-center gap-4">
                 <button
-                  onClick={insertTimestamp}
-                  className="w-full mt-6 py-3 bg-white/10 hover:bg-white/20 text-purple-300 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  onClick={skipBackward}
+                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
                 >
-                  <Clock className="w-5 h-5" />
-                  Insert Timestamp at {formatTime(currentTime)}
+                  <SkipBack className="w-6 h-6" />
                 </button>
+                <button
+                  onClick={togglePlayPause}
+                  className="p-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg text-white transition-all"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-8 h-8" />
+                  ) : (
+                    <Play className="w-8 h-8 ml-1" />
+                  )}
+                </button>
+                <button
+                  onClick={skipForward}
+                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                >
+                  <SkipForward className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Manual Timestamp Button */}
+              <button
+                onClick={insertTimestamp}
+                className="w-full mt-6 py-3 bg-white/10 hover:bg-white/20 text-purple-300 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                <Clock className="w-5 h-5" />
+                Insert Timestamp at {formatTime(currentTime)}
+              </button>
             </motion.div>
 
             {/* Previous Feedback (if any) - only show when alignment is ready */}
@@ -417,7 +431,9 @@ export default function SubmissionDetailPage({
                 className="w-full h-96 bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none font-mono text-sm"
               />
               <p className="text-xs text-purple-400 mt-2">
-                Tip: Pause the audio at any point to automatically insert a timestamp
+                {alignmentReady
+                  ? "Tip: Pause the audio at any point to automatically insert a timestamp with word identification"
+                  : "Tip: Pause the audio at any point to automatically insert a timestamp (word identification unavailable)"}
               </p>
             </div>
 

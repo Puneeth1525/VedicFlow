@@ -718,6 +718,17 @@ export default function PracticePage() {
       const recording = await recordingRes.json();
       console.log('Recording saved:', recording.id);
 
+      // 4. Trigger word-level alignment processing in the background
+      console.log('Triggering word alignment processing...');
+      fetch('/api/process-alignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordingId: recording.id }),
+      }).catch(error => {
+        // Don't block the save flow if alignment fails
+        console.warn('Alignment processing failed (non-blocking):', error);
+      });
+
       // Show success message
       setSaveSuccess(true);
 
