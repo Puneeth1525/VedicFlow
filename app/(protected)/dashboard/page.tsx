@@ -67,6 +67,11 @@ export default function DashboardPage() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [audioProgress, setAudioProgress] = useState<{ [key: string]: number }>({});
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const [modalAudioPlaying, setModalAudioPlaying] = useState(false);
+  const [modalAudioProgress, setModalAudioProgress] = useState(0);
+  const [modalAudioCurrentTime, setModalAudioCurrentTime] = useState(0);
+  const [modalAudioDuration, setModalAudioDuration] = useState(0);
+  const modalAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -252,16 +257,97 @@ export default function DashboardPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatTotalTime = (ms: number) => {
+    const totalMinutes = Math.floor(ms / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const getLevelName = (score: number) => {
+    if (score >= 85) return 'Elite';
+    if (score >= 60) return 'Pro';
+    if (score >= 35) return 'Intermediate';
+    return 'Amateur';
+  };
+
+  // Modal audio player controls
+  useEffect(() => {
+    if (!showRemarksModal) {
+      // Reset and cleanup when modal closes
+      if (modalAudioRef.current) {
+        modalAudioRef.current.pause();
+        modalAudioRef.current = null;
+      }
+      setModalAudioPlaying(false);
+      setModalAudioProgress(0);
+      setModalAudioCurrentTime(0);
+      setModalAudioDuration(0);
+    } else if (showRemarksModal && !modalAudioRef.current) {
+      // Create new audio element when modal opens
+      const audio = new Audio(`/api/serve-audio?id=${showRemarksModal.id}`);
+
+      audio.addEventListener('timeupdate', () => {
+        setModalAudioCurrentTime(audio.currentTime);
+        setModalAudioProgress((audio.currentTime / audio.duration) * 100);
+      });
+
+      audio.addEventListener('durationchange', () => {
+        setModalAudioDuration(audio.duration);
+      });
+
+      audio.addEventListener('ended', () => {
+        setModalAudioPlaying(false);
+        setModalAudioProgress(0);
+      });
+
+      audio.addEventListener('play', () => {
+        setModalAudioPlaying(true);
+      });
+
+      audio.addEventListener('pause', () => {
+        setModalAudioPlaying(false);
+      });
+
+      modalAudioRef.current = audio;
+    }
+  }, [showRemarksModal]);
+
+  const toggleModalAudio = () => {
+    if (!modalAudioRef.current) return;
+
+    if (modalAudioPlaying) {
+      modalAudioRef.current.pause();
+    } else {
+      modalAudioRef.current.play();
+    }
+  };
+
+  const seekModalAudio = (time: number) => {
+    if (!modalAudioRef.current) return;
+    modalAudioRef.current.currentTime = time;
+  };
+
   // Get all recordings for "Your Recordings" section
-  const allRecordings = practices.flatMap(practice =>
-    practice.recordings.map(recording => ({
+  // Group recordings by mantra and number them based on timestamp
+  const allRecordings = practices.flatMap(practice => {
+    // Sort recordings by creation time for this practice
+    const sortedRecordings = [...practice.recordings].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    return sortedRecordings.map((recording, index) => ({
       ...recording,
       mantraTitle: practice.mantra.title,
       mantraCategory: practice.mantra.category,
-      sessionName: `${practice.mantra.title} - Session ${practice.recordings.indexOf(recording) + 1}`,
+      sessionName: `${practice.mantra.title} #${index + 1}`,
       durationMs: practice.durationMs,
-    }))
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }));
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (loading) {
     return (
@@ -380,7 +466,7 @@ export default function DashboardPage() {
                 <div className="p-3 rounded-full bg-green-500/20">
                   <Clock className="w-6 h-6 text-green-400" />
                 </div>
-                <div className="text-3xl font-bold">{(userStats.totalTimeMs / (1000 * 60 * 60)).toFixed(1)}h</div>
+                <div className="text-3xl font-bold">{formatTotalTime(userStats.totalTimeMs)}</div>
                 <div className="text-sm text-purple-200 text-center">Total Time</div>
               </div>
             </div>
@@ -454,18 +540,13 @@ export default function DashboardPage() {
 
                 {/* Content */}
                 <div className="relative z-10">
-                  {/* Om Symbol */}
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4">
-                    <span className="text-2xl">🕉️</span>
-                  </div>
-
                   {/* Mantra Title */}
                   <h3 className="text-xl font-bold text-white mb-1">{progress.mantra.title}</h3>
                   <p className="text-purple-300 text-sm mb-4">{progress.mantra.category}</p>
 
                   {/* Level Badge */}
                   <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-xs font-semibold text-purple-300 mb-4">
-                    Level {Math.min(Math.floor(progress.averageScore / 20) + 1, 5)} • {Math.round(progress.averageScore)}% Complete
+                    {getLevelName(progress.averageScore)}
                   </div>
 
                   {/* Progress Bar */}
@@ -691,7 +772,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Mentor Remarks */}
-                <div className="bg-white/5 rounded-xl p-6 border border-green-400/20">
+                <div className="bg-white/5 rounded-xl p-6 border border-green-400/20 mb-6">
                   <div className="text-sm text-green-400 font-semibold mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-400 rounded-full"></span>
                     Mentor&apos;s Comments
@@ -701,26 +782,62 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-6">
+                {/* Audio Player */}
+                <div className="bg-white/5 rounded-xl p-6 border border-purple-400/20 mb-6">
+                  <div className="text-sm text-purple-400 font-semibold mb-4">Recording</div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div
+                      className="h-2 bg-white/10 rounded-full cursor-pointer"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const percentage = x / rect.width;
+                        seekModalAudio(percentage * modalAudioDuration);
+                      }}
+                    >
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
+                        style={{ width: `${modalAudioProgress}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-sm text-purple-400 mt-2">
+                      <span>{formatTime(modalAudioCurrentTime)}</span>
+                      <span>{formatTime(modalAudioDuration)}</span>
+                    </div>
+                  </div>
+
+                  {/* Play/Pause Button */}
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowRemarksModal(null)}
-                    className="flex-1 px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleModalAudio}
+                    className="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium transition-all flex items-center justify-center gap-2"
                   >
-                    Close
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => window.open(`/api/serve-audio?id=${showRemarksModal.id}`, '_blank')}
-                    className="flex-1 px-6 py-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Play className="w-4 h-4" />
-                    Play Recording
+                    {modalAudioPlaying ? (
+                      <>
+                        <Pause className="w-5 h-5" />
+                        Pause Recording
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5" />
+                        Play Recording
+                      </>
+                    )}
                   </motion.button>
                 </div>
+
+                {/* Close Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowRemarksModal(null)}
+                  className="w-full px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+                >
+                  Close
+                </motion.button>
               </motion.div>
             </motion.div>
           )}
