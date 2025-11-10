@@ -1,9 +1,9 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, TrendingUp, Award, Clock, Calendar, Mic, Send, MessageSquare, X, Trash2 } from 'lucide-react';
+import { Play, Pause, TrendingUp, Award, Clock, Mic, Send, MessageSquare, X, Trash2, Flame } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { formatRelativeTime } from '@/lib/format';
 import OnboardingPage from '@/app/(protected)/onboarding/page';
@@ -58,7 +58,6 @@ type UserStats = {
 };
 
 export default function DashboardPage() {
-  const [selectedMantra, setSelectedMantra] = useState<string | null>(null);
   const [showRemarksModal, setShowRemarksModal] = useState<Recording | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [mantraProgress, setMantraProgress] = useState<MantraProgress[]>([]);
@@ -66,6 +65,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [audioProgress, setAudioProgress] = useState<{ [key: string]: number }>({});
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   useEffect(() => {
     async function fetchData() {
@@ -186,24 +187,55 @@ export default function DashboardPage() {
     }
   };
 
-  const togglePlayer = (recordingId: string) => {
-    setPlayingRecordingId(playingRecordingId === recordingId ? null : recordingId);
+  const togglePlayer = (recordingId: string, audioUrl: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (playingRecordingId === recordingId) {
+      // Pause current
+      if (audioRefs.current[recordingId]) {
+        audioRefs.current[recordingId].pause();
+      }
+      setPlayingRecordingId(null);
+    } else {
+      // Stop any currently playing audio
+      if (playingRecordingId && audioRefs.current[playingRecordingId]) {
+        audioRefs.current[playingRecordingId].pause();
+      }
+
+      // Create new audio if doesn't exist
+      if (!audioRefs.current[recordingId]) {
+        const audio = new Audio(audioUrl);
+        audio.addEventListener('timeupdate', () => {
+          const progress = (audio.currentTime / audio.duration) * 100;
+          setAudioProgress(prev => ({ ...prev, [recordingId]: progress }));
+        });
+        audio.addEventListener('ended', () => {
+          setPlayingRecordingId(null);
+          setAudioProgress(prev => ({ ...prev, [recordingId]: 0 }));
+        });
+        audioRefs.current[recordingId] = audio;
+      }
+
+      // Play
+      audioRefs.current[recordingId].play();
+      setPlayingRecordingId(recordingId);
+    }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-400 bg-green-400/10';
-    if (score >= 75) return 'text-yellow-400 bg-yellow-400/10';
-    return 'text-red-400 bg-red-400/10';
+    if (score >= 90) return 'from-green-500 to-emerald-500';
+    if (score >= 75) return 'from-yellow-500 to-orange-500';
+    return 'from-red-500 to-pink-500';
   };
 
   const getStatusBadge = (status: string) => {
     if (status === 'reviewed') {
-      return <span className="px-3 py-1 rounded-full text-xs bg-green-400/10 text-green-400 border border-green-400/20">✓ Reviewed</span>;
+      return { text: 'Reviewed', className: 'bg-green-500/20 text-green-400 border-green-400/30' };
     }
     if (status === 'under-review') {
-      return <span className="px-3 py-1 rounded-full text-xs bg-blue-400/10 text-blue-400 border border-blue-400/20">⏳ Under Review</span>;
+      return { text: 'Submitted', className: 'bg-blue-500/20 text-blue-400 border-blue-400/30' };
     }
-    return <span className="px-3 py-1 rounded-full text-xs bg-slate-400/10 text-slate-400 border border-slate-400/20">Not Submitted</span>;
+    return { text: 'In Progress', className: 'bg-slate-500/20 text-slate-400 border-slate-400/30' };
   };
 
   const formatDuration = (ms: number) => {
@@ -213,11 +245,23 @@ export default function DashboardPage() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-
-  // Group practices by mantra
-  const getPracticesByMantra = (mantraId: string) => {
-    return practices.filter(p => p.mantraId === mantraId);
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Get all recordings for "Your Recordings" section
+  const allRecordings = practices.flatMap(practice =>
+    practice.recordings.map(recording => ({
+      ...recording,
+      mantraTitle: practice.mantra.title,
+      mantraCategory: practice.mantra.category,
+      sessionName: `${practice.mantra.title} - Session ${practice.recordings.indexOf(recording) + 1}`,
+      durationMs: practice.durationMs,
+    }))
+  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (loading) {
     return (
@@ -237,22 +281,20 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white pb-24">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Image
               src="/logo.png"
               alt="VedicFlo Logo"
-              width={80}
-              height={80}
+              width={64}
+              height={64}
               className="drop-shadow-2xl"
             />
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                Your Progress
-              </h1>
-              <p className="text-purple-200 mt-1 text-sm sm:text-base">Track your Vedic chanting journey</p>
+              <h1 className="text-xl font-bold text-white">VedicFlo</h1>
+              <p className="text-sm text-purple-300">Sacred Technology</p>
             </div>
           </div>
 
@@ -265,69 +307,108 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Overall Stats */}
+        {/* Your Progress Title */}
+        <div className="mb-6">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-3xl sm:text-4xl font-bold mb-2"
+            style={{
+              background: 'linear-gradient(135deg, #fbbf24 0%, #ec4899 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Your Progress
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-purple-300 text-base"
+          >
+            Track your Vedic chanting journey
+          </motion.p>
+        </div>
+
+        {/* Stats Cards */}
         {userStats && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10"
           >
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <Mic className="w-5 h-5 text-purple-400" />
+            {/* Total Practices */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-lg border border-white/10 hover:border-purple-400/30 transition-all">
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-3 rounded-full bg-purple-500/20">
+                  <Play className="w-6 h-6 text-purple-400" />
                 </div>
-                <div className="text-2xl font-bold">{userStats.totalPractices}</div>
+                <div className="text-3xl font-bold">{userStats.totalPractices}</div>
+                <div className="text-sm text-purple-200 text-center">Total Practices</div>
               </div>
-              <div className="text-sm text-purple-200">Total Practices</div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <TrendingUp className="w-5 h-5 text-green-400" />
+            {/* Average Score */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 backdrop-blur-lg border border-white/10 hover:border-cyan-400/30 transition-all">
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-3 rounded-full bg-cyan-500/20">
+                  <TrendingUp className="w-6 h-6 text-cyan-400" />
                 </div>
-                <div className="text-2xl font-bold">{Math.round(userStats.averageScore)}%</div>
+                <div className="text-3xl font-bold">{Math.round(userStats.averageScore)}%</div>
+                <div className="text-sm text-purple-200 text-center">Avg Score</div>
               </div>
-              <div className="text-sm text-purple-200">Average Score</div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-orange-500/20">
-                  <Award className="w-5 h-5 text-orange-400" />
+            {/* Day Streak */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 backdrop-blur-lg border border-white/10 hover:border-orange-400/30 transition-all">
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-3 rounded-full bg-orange-500/20">
+                  <Flame className="w-6 h-6 text-orange-400" />
                 </div>
-                <div className="text-2xl font-bold">{userStats.currentStreak}</div>
+                <div className="text-3xl font-bold">{userStats.currentStreak}</div>
+                <div className="text-sm text-purple-200 text-center">Day Streak</div>
               </div>
-              <div className="text-sm text-purple-200">Day Streak</div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-cyan-500/20">
-                  <Clock className="w-5 h-5 text-cyan-400" />
+            {/* Total Time */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-lg border border-white/10 hover:border-green-400/30 transition-all">
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-3 rounded-full bg-green-500/20">
+                  <Clock className="w-6 h-6 text-green-400" />
                 </div>
-                <div className="text-2xl font-bold">{formatDuration(userStats.totalTimeMs)}</div>
+                <div className="text-3xl font-bold">{(userStats.totalTimeMs / (1000 * 60 * 60)).toFixed(1)}h</div>
+                <div className="text-sm text-purple-200 text-center">Total Time</div>
               </div>
-              <div className="text-sm text-purple-200">Total Time</div>
             </div>
           </motion.div>
         )}
 
-        {/* Mantras Progress */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-6"
-        >
-          <h2 className="text-2xl font-bold mb-4">Your Mantras</h2>
+        {/* Your Mantras Section */}
+        <div className="mb-10">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-2xl font-bold mb-6"
+            style={{
+              background: 'linear-gradient(135deg, #fbbf24 0%, #ec4899 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Your Mantras
+          </motion.h2>
 
           {mantraProgress.length === 0 && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-16"
+              className="text-center py-16 rounded-3xl bg-white/5 backdrop-blur-lg border border-white/10"
             >
               <div className="p-6 rounded-full bg-purple-500/10 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <Mic className="w-12 h-12 text-purple-400" />
@@ -346,199 +427,220 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {mantraProgress.map((progress, index) => {
-            const mantraPractices = getPracticesByMantra(progress.mantraId);
-            const allRecordings = mantraPractices.flatMap(p => p.recordings);
-
-            return (
+          <div className="grid md:grid-cols-2 gap-6">
+            {mantraProgress.map((progress, index) => (
               <motion.div
                 key={progress.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + index * 0.1 }}
+                whileHover={{ scale: 1.02, y: -4 }}
+                className="relative p-6 rounded-3xl cursor-pointer group overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px 0 rgba(139, 92, 246, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+                }}
               >
-                {/* Mantra Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold mb-1">{progress.mantra.title}</h3>
-                    <p className="text-sm text-purple-300">{progress.mantra.category}</p>
+                {/* Background Glow Effect */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{
+                    background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.3), transparent 70%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                {/* Content */}
+                <div className="relative z-10">
+                  {/* Om Symbol */}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4">
+                    <span className="text-2xl">🕉️</span>
                   </div>
-                  <div className="flex gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-400">{progress.totalPractices}</div>
-                      <div className="text-purple-200">Practices</div>
+
+                  {/* Mantra Title */}
+                  <h3 className="text-xl font-bold text-white mb-1">{progress.mantra.title}</h3>
+                  <p className="text-purple-300 text-sm mb-4">{progress.mantra.category}</p>
+
+                  {/* Level Badge */}
+                  <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-xs font-semibold text-purple-300 mb-4">
+                    Level {Math.min(Math.floor(progress.averageScore / 20) + 1, 5)} • {Math.round(progress.averageScore)}% Complete
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm text-purple-300 mb-2">
+                      <span>Progress to Mastery</span>
+                      <span>{Math.round(progress.averageScore)}%</span>
                     </div>
-                    <div className="text-center">
-                      <div className={`text-2xl font-bold ${progress.averageScore >= 85 ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {Math.round(progress.averageScore)}%
-                      </div>
-                      <div className="text-purple-200">Avg Score</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm text-purple-300 mb-2">
-                    <span>Progress to Mastery</span>
-                    <span>{Math.round(progress.averageScore)}%</span>
-                  </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress.averageScore}%` }}
-                      transition={{ duration: 1, delay: index * 0.2 }}
-                      className={`h-full ${progress.averageScore >= 85 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'}`}
-                    />
-                  </div>
-                </div>
-
-                {/* Toggle Recordings */}
-                {allRecordings.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => setSelectedMantra(selectedMantra === progress.mantraId ? null : progress.mantraId)}
-                      className="text-sm text-purple-400 hover:text-purple-300 transition-colors mb-4"
-                    >
-                      {selectedMantra === progress.mantraId ? '▼ Hide' : '▶'} View {allRecordings.length} Recordings
-                    </button>
-
-                    {/* Recordings List */}
-                    {selectedMantra === progress.mantraId && (
+                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-3 mt-4"
-                      >
-                        {allRecordings.map((recording) => (
-                          <div
-                            key={recording.id}
-                            className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/30 transition-all"
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-3">
-                              {/* Left section: Play button + Info */}
-                              <div className="flex items-center gap-4 flex-1">
-                                {/* Play/Pause Button */}
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => togglePlayer(recording.id)}
-                                  className="p-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex-shrink-0"
-                                >
-                                  {playingRecordingId === recording.id ? (
-                                    <Pause className="w-5 h-5 text-purple-400" />
-                                  ) : (
-                                    <Play className="w-5 h-5 text-purple-400" />
-                                  )}
-                                </motion.button>
-
-                                {/* Recording info */}
-                                <div className="flex flex-col gap-2">
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <div className="flex items-center gap-2 text-sm text-purple-300">
-                                      <Calendar className="w-4 h-4" />
-                                      {formatRelativeTime(recording.createdAt)}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-purple-300">
-                                      <Clock className="w-4 h-4" />
-                                      {formatDuration(mantraPractices.find(p => p.id === recording.practiceId)?.durationMs || 0)}
-                                    </div>
-                                  </div>
-                                  {getStatusBadge(recording.reviewStatus)}
-                                </div>
-                              </div>
-
-                              {/* Right section: Score + Action buttons */}
-                              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                                <div className={`px-4 py-2 rounded-lg font-semibold ${getScoreColor(recording.score)}`}>
-                                  {Math.round(recording.score)}%
-                                </div>
-
-                                {/* Show mentor remarks button if reviewed */}
-                                {recording.reviewStatus === 'reviewed' && recording.mentorRemarks && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setShowRemarksModal(recording)}
-                                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
-                                  >
-                                    <MessageSquare className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Mentor Feedback</span>
-                                  </motion.button>
-                                )}
-
-                                {/* Show submit button if not submitted */}
-                                {!recording.submittedForReview && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleSubmitForReview(recording.id)}
-                                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
-                                  >
-                                    <Send className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Submit for Review</span>
-                                  </motion.button>
-                                )}
-
-                                {/* Delete button - always shown */}
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => handleDeleteRecording(recording.id)}
-                                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  <span className="hidden sm:inline">Delete</span>
-                                </motion.button>
-                              </div>
-                            </div>
-
-                            {/* Audio Player - shown when playing */}
-                            {playingRecordingId === recording.id && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-3 pt-3 border-t border-white/10"
-                              >
-                                <audio
-                                  src={`/api/serve-audio?id=${recording.id}`}
-                                  controls
-                                  autoPlay
-                                  className="w-full"
-                                  onEnded={() => setPlayingRecordingId(null)}
-                                  onError={(e) => {
-                                    console.error('Audio playback error:', e);
-                                    console.error('Recording ID:', recording.id);
-                                    alert('Unable to play audio. The file may not be available.');
-                                  }}
-                                  onLoadStart={() => console.log('Loading audio for recording:', recording.id)}
-                                  style={{
-                                    height: '40px',
-                                    borderRadius: '8px',
-                                  }}
-                                />
-                              </motion.div>
-                            )}
-                          </div>
-                        ))}
-                      </motion.div>
-                    )}
-                  </>
-                )}
-
-                {/* Last Practiced */}
-                {progress.lastPracticed && (
-                  <div className="mt-4 pt-4 border-t border-white/10 text-sm text-purple-300">
-                    Last practiced: {formatRelativeTime(progress.lastPracticed)}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress.averageScore}%` }}
+                        transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
+                        className={`h-full bg-gradient-to-r ${progress.averageScore >= 85 ? 'from-green-500 to-emerald-500' : progress.averageScore >= 60 ? 'from-yellow-500 to-orange-500' : 'from-purple-500 to-pink-500'}`}
+                      />
+                    </div>
                   </div>
-                )}
+
+                  {/* Continue Practice Button */}
+                  <Link href={`/practice/${progress.mantraId}`} onClick={(e) => e.stopPropagation()}>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold transition-all flex items-center justify-center gap-2"
+                    >
+                      Continue Practice
+                    </motion.button>
+                  </Link>
+                </div>
               </motion.div>
-            );
-          })}
-        </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Your Recordings Section */}
+        {allRecordings.length > 0 && (
+          <div>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="text-2xl font-bold mb-6"
+              style={{
+                background: 'linear-gradient(135deg, #fbbf24 0%, #ec4899 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Your Recordings
+            </motion.h2>
+
+            <div className="space-y-4">
+              {allRecordings.map((recording, index) => {
+                const statusBadge = getStatusBadge(recording.reviewStatus);
+                const isPlaying = playingRecordingId === recording.id;
+                const progress = audioProgress[recording.id] || 0;
+                const audio = audioRefs.current[recording.id];
+                const currentTime = audio?.currentTime || 0;
+                const duration = audio?.duration || 0;
+
+                return (
+                  <motion.div
+                    key={recording.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + index * 0.05 }}
+                    className="relative p-6 rounded-2xl overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-white mb-1">{recording.sessionName}</h3>
+                        <p className="text-sm text-purple-300">{formatRelativeTime(recording.createdAt)}</p>
+                      </div>
+
+                      {/* Status Badge */}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusBadge.className}`}>
+                        {statusBadge.text}
+                      </span>
+                    </div>
+
+                    {/* Seekbar and Controls Row */}
+                    <div className="flex items-center gap-4 mb-4">
+                      {/* Play/Pause Button */}
+                      <button
+                        onClick={(e) => togglePlayer(recording.id, `/api/serve-audio?id=${recording.id}`, e)}
+                        className="p-3 rounded-full bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex-shrink-0"
+                      >
+                        {isPlaying ? (
+                          <Pause className="w-5 h-5 text-purple-400" />
+                        ) : (
+                          <Play className="w-5 h-5 text-purple-400" />
+                        )}
+                      </button>
+
+                      {/* Seekbar */}
+                      <div className="flex-1">
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden cursor-pointer">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-purple-400 mt-1">
+                          <span>{formatTime(currentTime)}</span>
+                          <span>{formatTime(duration)}</span>
+                        </div>
+                      </div>
+
+                      {/* AI Score */}
+                      <div className={`px-4 py-2 rounded-lg font-bold text-lg bg-gradient-to-r ${getScoreColor(recording.score)} text-white`}>
+                        {Math.round(recording.score)}%
+                      </div>
+                    </div>
+
+                    {/* Action Buttons Row */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {/* Mentor Feedback Button */}
+                      {recording.reviewStatus === 'reviewed' && recording.mentorRemarks && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowRemarksModal(recording);
+                          }}
+                          className="flex-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          View Feedback
+                        </motion.button>
+                      )}
+
+                      {/* Submit Button */}
+                      {!recording.submittedForReview && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSubmitForReview(recording.id);
+                          }}
+                          className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+                        >
+                          <Send className="w-4 h-4" />
+                          Submit to Mentor
+                        </motion.button>
+                      )}
+
+                      {/* Delete Button */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRecording(recording.id);
+                        }}
+                        className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-medium transition-colors flex items-center gap-2 border border-red-400/30"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Mentor Remarks Modal */}
         <AnimatePresence>
