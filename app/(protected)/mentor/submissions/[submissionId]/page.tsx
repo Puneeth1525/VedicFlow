@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, use } from 'react';
+import { useEffect, useState, useRef, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -18,6 +18,12 @@ interface FeedbackMarker {
   comment: string;
 }
 
+interface AlignmentWord {
+  word: string;
+  startTime: number;
+  endTime: number;
+}
+
 interface Submission {
   id: string;
   status: string;
@@ -26,6 +32,7 @@ interface Submission {
     id: string;
     score: number;
     audioUrl: string;
+    alignmentWords?: AlignmentWord[];
     practice: {
       mantra: {
         id: string;
@@ -63,20 +70,83 @@ export default function SubmissionDetailPage({
   const [markers, setMarkers] = useState<FeedbackMarker[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchSubmission();
+  const fetchSubmission = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/mentor/submissions?submissionId=${resolvedParams.submissionId}`
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubmission(data.submission);
+
+        // Check if alignment words are ready
+        const hasAlignment =
+          data.submission.recording?.alignmentWords &&
+          data.submission.recording.alignmentWords.length > 0;
+        setAlignmentReady(hasAlignment);
+
+        // Pre-populate if already reviewed
+        if (data.submission.feedbacks && data.submission.feedbacks.length > 0) {
+          const latestFeedback = data.submission.feedbacks[0];
+          setOverallRemarks(latestFeedback.overallRemarks);
+          setMarkers(latestFeedback.markers);
+        }
+      } else {
+        console.error('Failed to fetch submission:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching submission:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [resolvedParams.submissionId]);
 
-  // Poll for alignment completion
   useEffect(() => {
-    if (loading || alignmentReady || !submission) return;
+    fetchSubmission();
+  }, [fetchSubmission]);
 
-    const pollInterval = setInterval(() => {
-      fetchSubmission();
-    }, 3000); // Poll every 3 seconds
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
-    return () => clearInterval(pollInterval);
-  }, [loading, alignmentReady, submission]);
+  const findWordAtTimestamp = useCallback((timestamp: number) => {
+    if (!submission?.recording?.alignmentWords || submission.recording.alignmentWords.length === 0) {
+      console.warn('No alignment words available');
+      return null;
+    }
+
+    // Find the word being spoken at this timestamp
+    const word = submission.recording.alignmentWords.find(
+      (w: AlignmentWord) => timestamp >= w.startTime && timestamp <= w.endTime
+    );
+
+    return word;
+  }, [submission]);
+
+  const insertTimestampWithWord = useCallback(async (timestamp: number) => {
+    if (!textareaRef.current) return;
+
+    const word = findWordAtTimestamp(timestamp);
+    const timestampText = `\n\n**[${formatTime(timestamp)}]** _"${word?.word || 'processing...'}"_\n`;
+
+    const textarea = textareaRef.current;
+    const cursorPosition = textarea.selectionStart;
+    const textBefore = overallRemarks.substring(0, cursorPosition);
+    const textAfter = overallRemarks.substring(cursorPosition);
+
+    setOverallRemarks(textBefore + timestampText + textAfter);
+
+    // Move cursor after inserted timestamp
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd =
+        cursorPosition + timestampText.length;
+      textarea.focus();
+    }, 0);
+  }, [findWordAtTimestamp, overallRemarks]);
 
   // Set up audio event listeners when submission loads and alignment is ready
   useEffect(() => {
@@ -122,39 +192,7 @@ export default function SubmissionDetailPage({
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
     };
-  }, [submission, isPlaying, alignmentReady]);
-
-  const fetchSubmission = async () => {
-    try {
-      const response = await fetch(
-        `/api/mentor/submissions?submissionId=${resolvedParams.submissionId}`
-      );
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmission(data.submission);
-
-        // Check if alignment words are ready
-        const hasAlignment =
-          data.submission.recording?.alignmentWords &&
-          data.submission.recording.alignmentWords.length > 0;
-        setAlignmentReady(hasAlignment);
-
-        // Pre-populate if already reviewed
-        if (data.submission.feedbacks && data.submission.feedbacks.length > 0) {
-          const latestFeedback = data.submission.feedbacks[0];
-          setOverallRemarks(latestFeedback.overallRemarks);
-          setMarkers(latestFeedback.markers);
-        }
-      } else {
-        console.error('Failed to fetch submission:', data.error);
-      }
-    } catch (error) {
-      console.error('Error fetching submission:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [submission, isPlaying, alignmentReady, insertTimestampWithWord]);
 
   const togglePlayPause = () => {
     if (!audioRef.current) return;
@@ -183,48 +221,6 @@ export default function SubmissionDetailPage({
   const seekTo = (time: number) => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = time;
-  };
-
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const findWordAtTimestamp = (timestamp: number) => {
-    if (!submission?.recording?.alignmentWords || submission.recording.alignmentWords.length === 0) {
-      console.warn('No alignment words available');
-      return null;
-    }
-
-    // Find the word being spoken at this timestamp
-    const word = submission.recording.alignmentWords.find(
-      (w: any) => timestamp >= w.startTime && timestamp <= w.endTime
-    );
-
-    return word;
-  };
-
-  const insertTimestampWithWord = async (timestamp: number) => {
-    if (!textareaRef.current) return;
-
-    const word = findWordAtTimestamp(timestamp);
-    const timestampText = `\n\n**[${formatTime(timestamp)}]** _"${word?.word || 'processing...'}"_\n`;
-
-    const textarea = textareaRef.current;
-    const cursorPosition = textarea.selectionStart;
-    const textBefore = overallRemarks.substring(0, cursorPosition);
-    const textAfter = overallRemarks.substring(cursorPosition);
-
-    setOverallRemarks(textBefore + timestampText + textAfter);
-
-    // Move cursor after inserted timestamp
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd =
-        cursorPosition + timestampText.length;
-      textarea.focus();
-    }, 0);
   };
 
   const insertTimestamp = () => {
@@ -309,32 +305,12 @@ export default function SubmissionDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Audio Player Section */}
           <div className="space-y-6">
-            {!alignmentReady ? (
-              /* Loading State */
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
-              >
-                <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
-                <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500"></div>
-                  <p className="text-purple-300 text-lg font-semibold">
-                    Processing audio transcription...
-                  </p>
-                  <p className="text-purple-400 text-sm text-center max-w-md">
-                    This usually takes 5-10 seconds. We're analyzing the recording to enable
-                    word-level feedback.
-                  </p>
-                </div>
-              </motion.div>
-            ) : (
-              /* Audio Player */
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
-              >
+            {/* Audio Player */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
+            >
                 <h2 className="text-2xl font-bold text-white mb-6">Recording</h2>
 
                 <audio
@@ -399,11 +375,10 @@ export default function SubmissionDetailPage({
                   <Clock className="w-5 h-5" />
                   Insert Timestamp at {formatTime(currentTime)}
                 </button>
-              </motion.div>
-            )}
+            </motion.div>
 
-            {/* Previous Feedback (if any) */}
-            {submission.feedbacks && submission.feedbacks.length > 0 && (
+            {/* Previous Feedback (if any) - only show when alignment is ready */}
+            {alignmentReady && submission.feedbacks && submission.feedbacks.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

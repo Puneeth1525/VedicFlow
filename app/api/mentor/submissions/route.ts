@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma, SubmissionStatus } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
     }
 
     // Build where clause based on filters
-    const whereClause: any = {
+    const whereClause: Prisma.SubmissionWhereInput = {
       OR: [
         { mentorId: userId }, // Assigned to this mentor
         { mentorId: null }, // Unassigned (available to pick up)
@@ -80,7 +81,7 @@ export async function GET(request: Request) {
     };
 
     if (status && status !== 'ALL') {
-      whereClause.status = status;
+      whereClause.status = status as SubmissionStatus;
     }
 
     // Fetch submissions

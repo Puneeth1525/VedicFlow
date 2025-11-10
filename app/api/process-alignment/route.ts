@@ -6,6 +6,16 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+interface WhisperWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
+interface WhisperTranscription {
+  words?: WhisperWord[];
+}
+
 export async function POST(request: Request) {
   try {
     const { recordingId } = await request.json();
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
     });
 
     // Extract words with timestamps
-    const words = (transcription as any).words || [];
+    const words = (transcription as WhisperTranscription).words || [];
 
     if (words.length === 0) {
       console.warn('No words found in transcription');
@@ -73,7 +83,7 @@ export async function POST(request: Request) {
 
     // Store alignment words in database
     await prisma.alignmentWord.createMany({
-      data: words.map((word: any) => ({
+      data: words.map((word: WhisperWord) => ({
         recordingId,
         word: word.word,
         startTime: word.start,

@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle, AlertCircle, PlayCircle } from 'lucide-react';
 
+interface Feedback {
+  overallRemarks: string;
+  markers: Array<{
+    timestamp: number;
+    comment: string;
+  }>;
+}
+
 interface Submission {
   id: string;
   status: 'PENDING' | 'IN_REVIEW' | 'COMPLETED';
@@ -24,7 +32,7 @@ interface Submission {
       };
     };
   };
-  feedbacks: any[];
+  feedbacks: Feedback[];
 }
 
 interface GroupedSubmissions {
