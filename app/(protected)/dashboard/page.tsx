@@ -155,40 +155,44 @@ export default function DashboardPage() {
     }
 
     try {
+      console.log('Deleting recording:', recordingId);
       const res = await fetch(`/api/recordings?id=${recordingId}`, {
         method: 'DELETE',
       });
 
-      if (res.ok) {
-        // Refresh all data
-        const [statsRes, progressRes, practicesRes] = await Promise.all([
-          fetch('/api/user-stats'),
-          fetch('/api/mantra-progress'),
-          fetch('/api/practices'),
-        ]);
+      const data = await res.json();
+      console.log('Delete response:', res.status, data);
 
-        if (statsRes.ok) {
-          const stats = await statsRes.json();
-          setUserStats(stats);
-        }
-
-        if (progressRes.ok) {
-          const progress = await progressRes.json();
-          setMantraProgress(progress);
-        }
-
-        if (practicesRes.ok) {
-          const allPractices = await practicesRes.json();
-          setPractices(allPractices);
-        }
-
-        alert('Recording deleted successfully!');
-      } else {
-        throw new Error('Failed to delete recording');
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete recording');
       }
+
+      // Refresh all data
+      const [statsRes, progressRes, practicesRes] = await Promise.all([
+        fetch('/api/user-stats'),
+        fetch('/api/mantra-progress'),
+        fetch('/api/practices'),
+      ]);
+
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        setUserStats(stats);
+      }
+
+      if (progressRes.ok) {
+        const progress = await progressRes.json();
+        setMantraProgress(progress);
+      }
+
+      if (practicesRes.ok) {
+        const allPractices = await practicesRes.json();
+        setPractices(allPractices);
+      }
+
+      alert('Recording deleted successfully!');
     } catch (error) {
       console.error('Error deleting recording:', error);
-      alert('Failed to delete recording. Please try again.');
+      alert(`Failed to delete recording: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -334,20 +338,46 @@ export default function DashboardPage() {
 
   // Get all recordings for "Your Recordings" section
   // Group recordings by mantra and number them based on timestamp
-  const allRecordings = practices.flatMap(practice => {
-    // Sort recordings by creation time for this practice
-    const sortedRecordings = [...practice.recordings].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  const allRecordings = (() => {
+    // First, collect all recordings with their mantra info
+    const recordingsWithMantra = practices.flatMap(practice =>
+      practice.recordings.map(recording => ({
+        ...recording,
+        mantraId: practice.mantraId,
+        mantraTitle: practice.mantra.title,
+        mantraCategory: practice.mantra.category,
+        durationMs: practice.durationMs,
+      }))
     );
 
-    return sortedRecordings.map((recording, index) => ({
-      ...recording,
-      mantraTitle: practice.mantra.title,
-      mantraCategory: practice.mantra.category,
-      sessionName: `${practice.mantra.title} #${index + 1}`,
-      durationMs: practice.durationMs,
-    }));
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Group by mantra ID
+    const recordingsByMantra = recordingsWithMantra.reduce((acc, recording) => {
+      if (!acc[recording.mantraId]) {
+        acc[recording.mantraId] = [];
+      }
+      acc[recording.mantraId].push(recording);
+      return acc;
+    }, {} as Record<string, typeof recordingsWithMantra>);
+
+    // Number each mantra's recordings by timestamp (earliest = #1, latest = #N)
+    const numberedRecordings = Object.values(recordingsByMantra).flatMap(mantraRecordings => {
+      // Sort by timestamp (oldest first)
+      const sorted = [...mantraRecordings].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      // Add session numbers
+      return sorted.map((recording, index) => ({
+        ...recording,
+        sessionName: `${recording.mantraTitle} #${index + 1}`,
+      }));
+    });
+
+    // Sort all recordings by timestamp (newest first) for display
+    return numberedRecordings.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  })();
 
   if (loading) {
     return (
@@ -703,18 +733,20 @@ export default function DashboardPage() {
                         </motion.button>
                       )}
 
-                      {/* Delete Button */}
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRecording(recording.id);
-                        }}
-                        className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-medium transition-colors flex items-center gap-2 border border-red-400/30"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </motion.button>
+                      {/* Delete Button - Only show if not submitted for review */}
+                      {!recording.submittedForReview && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecording(recording.id);
+                          }}
+                          className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-medium transition-colors flex items-center gap-2 border border-red-400/30"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </motion.button>
+                      )}
                     </div>
                   </motion.div>
                 );
