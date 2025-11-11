@@ -244,7 +244,7 @@ export default function DashboardPage() {
     if (status === 'under-review') {
       return { text: 'Submitted', className: 'bg-blue-500/20 text-blue-400 border-blue-400/30' };
     }
-    return { text: 'In Progress', className: 'bg-slate-500/20 text-slate-400 border-slate-400/30' };
+    return { text: 'Not Submitted', className: 'bg-slate-500/20 text-slate-400 border-slate-400/30' };
   };
 
   const formatDuration = (ms: number) => {
