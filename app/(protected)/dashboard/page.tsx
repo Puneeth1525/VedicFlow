@@ -196,7 +196,7 @@ export default function DashboardPage() {
     }
   };
 
-  const togglePlayer = (recordingId: string, audioUrl: string, e: React.MouseEvent) => {
+  const togglePlayer = async (recordingId: string, audioUrl: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (playingRecordingId === recordingId) {
@@ -213,21 +213,41 @@ export default function DashboardPage() {
 
       // Create new audio if doesn't exist
       if (!audioRefs.current[recordingId]) {
+        console.log('Creating new audio for:', recordingId, 'URL:', audioUrl);
         const audio = new Audio(audioUrl);
+
+        audio.addEventListener('loadedmetadata', () => {
+          console.log('Audio metadata loaded, duration:', audio.duration);
+        });
+
         audio.addEventListener('timeupdate', () => {
           const progress = (audio.currentTime / audio.duration) * 100;
           setAudioProgress(prev => ({ ...prev, [recordingId]: progress }));
         });
+
         audio.addEventListener('ended', () => {
           setPlayingRecordingId(null);
           setAudioProgress(prev => ({ ...prev, [recordingId]: 0 }));
         });
+
+        audio.addEventListener('error', (e) => {
+          console.error('Audio loading error:', e, audio.error);
+          alert('Failed to load audio. Please try again.');
+        });
+
         audioRefs.current[recordingId] = audio;
       }
 
-      // Play
-      audioRefs.current[recordingId].play();
-      setPlayingRecordingId(recordingId);
+      // Play with error handling
+      try {
+        console.log('Attempting to play audio:', recordingId);
+        await audioRefs.current[recordingId].play();
+        setPlayingRecordingId(recordingId);
+        console.log('Audio playing successfully');
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        alert('Failed to play audio. Please try again.');
+      }
     }
   };
 

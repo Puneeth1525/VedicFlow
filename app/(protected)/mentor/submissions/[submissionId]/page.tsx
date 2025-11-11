@@ -208,14 +208,21 @@ export default function SubmissionDetailPage({
     };
   }, [alignmentReady, isPlaying, insertTimestampWithWord]);
 
-  const togglePlayPause = () => {
+  const togglePlayPause = async () => {
     if (!audioRef.current) return;
 
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      try {
+        console.log('Attempting to play audio');
+        await audioRef.current.play();
+        setIsPlaying(true);
+        console.log('Audio playing successfully');
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        alert('Failed to play audio. Please try again.');
+      }
     }
   };
 
@@ -329,8 +336,14 @@ export default function SubmissionDetailPage({
 
               <audio
                 ref={audioRef}
-                src={submission.recording.audioUrl}
+                src={`/api/serve-audio?id=${submission.recording.id}`}
                 preload="metadata"
+                onError={(e) => {
+                  console.error('Audio loading error:', e);
+                }}
+                onLoadedMetadata={() => {
+                  console.log('Audio metadata loaded');
+                }}
               />
 
               {/* Progress Bar */}

@@ -19,14 +19,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Recording ID required' }, { status: 400 });
     }
 
-    // Verify user owns this recording
+    // Verify user can access this recording (owner or mentor reviewing it)
     const recording = await prisma.recording.findFirst({
       where: { id: recordingId },
-      include: { practice: true },
+      include: {
+        practice: true,
+        submission: {
+          include: {
+            recording: true,
+          },
+        },
+      },
     });
 
-    if (!recording || recording.practice.userId !== userId) {
+    if (!recording) {
       return NextResponse.json({ error: 'Recording not found' }, { status: 404 });
+    }
+
+    // Check if user is the owner
+    const isOwner = recording.practice.userId === userId;
+
+    // Check if user is a mentor reviewing this submission
+    const isMentor = recording.submission && (
+      recording.submission.mentorId === userId ||
+      recording.submission.mentorId === null // Unassigned submissions can be viewed by any mentor
+    );
+
+    // Get user role to verify mentor access
+    if (!isOwner && !isMentor) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      const isMentorRole = user && (user.role === 'MENTOR' || user.role === 'TEACHER');
+
+      if (!isMentorRole || !recording.submission) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     // Initialize Supabase admin client
